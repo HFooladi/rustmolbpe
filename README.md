@@ -1,5 +1,7 @@
 # rustmolbpe
 
+[![CI](https://github.com/HFooladi/rustmolbpe/actions/workflows/ci.yml/badge.svg)](https://github.com/HFooladi/rustmolbpe/actions/workflows/ci.yml)
+
 A high-performance BPE (Byte Pair Encoding) tokenizer for molecular SMILES written in Rust with Python bindings.
 
 ## Features

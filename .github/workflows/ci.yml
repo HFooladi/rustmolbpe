@@ -33,8 +33,11 @@ jobs:
       - name: Install maturin and pytest
         run: pip install maturin pytest
 
-      - name: Build and install package
-        run: maturin develop --release
+      - name: Build wheel
+        run: maturin build --release
+
+      - name: Install package
+        run: pip install target/wheels/*.whl
 
       - name: Run Rust tests
         run: cargo test

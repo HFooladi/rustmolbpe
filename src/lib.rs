@@ -23,8 +23,7 @@ use rayon::prelude::*;
 /// - Disconnected: .
 /// - Ring numbers: single digit or %XX
 /// - Other: +, ?, >, *, $
-const SMILES_ATOM_PATTERN: &str =
-    r"(\[[^\]]+]|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|-|\+|\\|\/|:|~|@|\?|>|\*|\$|\%[0-9]{2}|[0-9])";
+const SMILES_ATOM_PATTERN: &str = r"(\[[^\]]+]|Br?|Cl?|N|O|S|P|F|I|b|c|n|o|s|p|\(|\)|\.|=|#|-|\+|\\|\/|:|~|@|\?|>|\*|\$|\%[0-9]{2}|[0-9])";
 
 /// Special tokens for sequence modeling
 pub const PAD_TOKEN: &str = "<pad>";
@@ -193,10 +192,8 @@ fn count_pairs_parallel(
 /// Tokenize a SMILES string into atom-level tokens
 fn atomwise_tokenize(smiles: &str, pattern: &Regex) -> Vec<CompactString> {
     let mut tokens = Vec::new();
-    for mat in pattern.find_iter(smiles) {
-        if let Ok(m) = mat {
-            tokens.push(CompactString::from(m.as_str()));
-        }
+    for m in pattern.find_iter(smiles).flatten() {
+        tokens.push(CompactString::from(m.as_str()));
     }
     tokens
 }
@@ -205,12 +202,7 @@ fn atomwise_tokenize(smiles: &str, pattern: &Regex) -> Vec<CompactString> {
 
 impl SmilesTokenizer {
     /// Core incremental BPE training given unique words and their counts.
-    fn train_core_incremental(
-        &mut self,
-        mut words: Vec<Word>,
-        counts: Vec<i32>,
-        num_merges: u32,
-    ) {
+    fn train_core_incremental(&mut self, mut words: Vec<Word>, counts: Vec<i32>, num_merges: u32) {
         log::info!("Starting BPE training: {} merges to compute", num_merges);
 
         // ---- Initial pair_counts and where_to_update (parallel) ----
@@ -338,7 +330,10 @@ impl SmilesTokenizer {
     fn init_special_tokens(&mut self) {
         // Only add if not already present
         if self.id_to_atom.is_empty() {
-            for (id, token) in [PAD_TOKEN, UNK_TOKEN, BOS_TOKEN, EOS_TOKEN].iter().enumerate() {
+            for (id, token) in [PAD_TOKEN, UNK_TOKEN, BOS_TOKEN, EOS_TOKEN]
+                .iter()
+                .enumerate()
+            {
                 let token_str = CompactString::from(*token);
                 self.atom_to_id.insert(token_str.clone(), id as u32);
                 self.id_to_atom.push(token_str);
@@ -509,9 +504,7 @@ impl SmilesTokenizer {
 
         // Build base vocabulary from atoms (sorted by frequency, then alphabetically)
         let mut atoms_sorted: Vec<_> = atom_counts.into_iter().collect();
-        atoms_sorted.sort_by(|a, b| {
-            b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0))
-        });
+        atoms_sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
         for (atom, _count) in atoms_sorted {
             let id = self.id_to_atom.len() as u32;
@@ -523,7 +516,11 @@ impl SmilesTokenizer {
         log::info!("Built base vocabulary with {} atoms", base_vocab_size);
 
         if vocab_size <= base_vocab_size {
-            log::info!("vocab_size ({}) <= base vocab size ({}), no merges needed", vocab_size, base_vocab_size);
+            log::info!(
+                "vocab_size ({}) <= base vocab size ({}), no merges needed",
+                vocab_size,
+                base_vocab_size
+            );
             return Ok(());
         }
 
@@ -569,9 +566,8 @@ impl SmilesTokenizer {
         let mut merge_pairs: Vec<(CompactString, CompactString)> = Vec::new();
 
         for line in reader.lines() {
-            let line = line.map_err(|e| {
-                pyo3::exceptions::PyIOError::new_err(format!("Read error: {}", e))
-            })?;
+            let line = line
+                .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("Read error: {}", e)))?;
             let trimmed = line.trim();
             if trimmed.is_empty() {
                 continue;
@@ -657,9 +653,8 @@ impl SmilesTokenizer {
         for (&(left_id, right_id), _) in sorted_merges {
             let left_str = &self.id_to_atom[left_id as usize];
             let right_str = &self.id_to_atom[right_id as usize];
-            writeln!(file, "{} {}", left_str, right_str).map_err(|e| {
-                pyo3::exceptions::PyIOError::new_err(format!("Write error: {}", e))
-            })?;
+            writeln!(file, "{} {}", left_str, right_str)
+                .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("Write error: {}", e)))?;
         }
 
         Ok(())
@@ -768,7 +763,12 @@ impl SmilesTokenizer {
     /// Encode multiple SMILES strings in parallel using rayon.
     #[pyo3(signature = (smiles_list, add_special_tokens=false))]
     #[pyo3(text_signature = "(self, smiles_list, add_special_tokens=False)")]
-    pub fn batch_encode(&self, py: Python<'_>, smiles_list: Vec<String>, add_special_tokens: bool) -> PyResult<Vec<Vec<u32>>> {
+    pub fn batch_encode(
+        &self,
+        py: Python<'_>,
+        smiles_list: Vec<String>,
+        add_special_tokens: bool,
+    ) -> PyResult<Vec<Vec<u32>>> {
         let results = py.detach(|| {
             smiles_list
                 .par_iter()
@@ -800,7 +800,7 @@ impl SmilesTokenizer {
                 .collect()
         });
 
-        results.map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+        results.map_err(pyo3::exceptions::PyValueError::new_err)
     }
 
     /// Pad a batch of token sequences to the same length.
@@ -908,6 +908,7 @@ impl SmilesTokenizer {
     /// Encode and pad a batch of SMILES strings in one call.
     ///
     /// Convenience method that combines batch_encode and pad.
+    #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (smiles_list, max_length=None, padding="right", truncation=false, add_special_tokens=false, return_attention_mask=true))]
     pub fn encode_batch_padded(
         &self,
@@ -920,7 +921,13 @@ impl SmilesTokenizer {
         return_attention_mask: bool,
     ) -> PyResult<std::collections::HashMap<String, Vec<Vec<u32>>>> {
         let sequences = self.batch_encode(py, smiles_list, add_special_tokens)?;
-        self.pad(sequences, max_length, padding, truncation, return_attention_mask)
+        self.pad(
+            sequences,
+            max_length,
+            padding,
+            truncation,
+            return_attention_mask,
+        )
     }
 
     /// Get token string for a given token ID
@@ -1090,8 +1097,13 @@ mod tests {
     fn test_tokenizer_new() {
         let tok = SmilesTokenizer::new();
         assert!(tok.merges.is_empty());
-        assert!(tok.atom_to_id.is_empty());
-        assert!(tok.id_to_atom.is_empty());
+        // Special tokens are initialized: PAD, UNK, BOS, EOS
+        assert_eq!(tok.atom_to_id.len(), 4);
+        assert_eq!(tok.id_to_atom.len(), 4);
+        assert_eq!(tok.id_to_atom[0].as_str(), PAD_TOKEN);
+        assert_eq!(tok.id_to_atom[1].as_str(), UNK_TOKEN);
+        assert_eq!(tok.id_to_atom[2].as_str(), BOS_TOKEN);
+        assert_eq!(tok.id_to_atom[3].as_str(), EOS_TOKEN);
     }
 
     #[test]
@@ -1113,15 +1125,15 @@ mod tests {
     fn test_encode_decode_roundtrip() {
         let mut tok = SmilesTokenizer::new();
 
-        // Manually set up a simple vocabulary
-        tok.id_to_atom.push(CompactString::from("C"));
-        tok.id_to_atom.push(CompactString::from("O"));
-        tok.atom_to_id.insert(CompactString::from("C"), 0);
-        tok.atom_to_id.insert(CompactString::from("O"), 1);
+        // Manually add atoms after special tokens (IDs 0-3)
+        tok.id_to_atom.push(CompactString::from("C")); // ID 4
+        tok.id_to_atom.push(CompactString::from("O")); // ID 5
+        tok.atom_to_id.insert(CompactString::from("C"), 4);
+        tok.atom_to_id.insert(CompactString::from("O"), 5);
 
         let smiles = "CCO";
-        let ids = tok.encode(smiles);
-        assert_eq!(ids, vec![0, 0, 1]);
+        let ids = tok.encode(smiles, false);
+        assert_eq!(ids, vec![4, 4, 5]);
 
         let decoded = tok.decode(ids).unwrap();
         assert_eq!(decoded, smiles);
@@ -1131,19 +1143,19 @@ mod tests {
     fn test_encode_with_merge() {
         let mut tok = SmilesTokenizer::new();
 
-        // Set up vocabulary
-        tok.id_to_atom.push(CompactString::from("C"));
-        tok.id_to_atom.push(CompactString::from("O"));
-        tok.id_to_atom.push(CompactString::from("CC")); // merged token
-        tok.atom_to_id.insert(CompactString::from("C"), 0);
-        tok.atom_to_id.insert(CompactString::from("O"), 1);
-        tok.atom_to_id.insert(CompactString::from("CC"), 2);
+        // Set up vocabulary after special tokens (IDs 0-3)
+        tok.id_to_atom.push(CompactString::from("C")); // ID 4
+        tok.id_to_atom.push(CompactString::from("O")); // ID 5
+        tok.id_to_atom.push(CompactString::from("CC")); // ID 6, merged token
+        tok.atom_to_id.insert(CompactString::from("C"), 4);
+        tok.atom_to_id.insert(CompactString::from("O"), 5);
+        tok.atom_to_id.insert(CompactString::from("CC"), 6);
 
-        // Add merge rule: (0, 0) -> 2  (C + C -> CC)
-        tok.merges.insert((0, 0), 2);
+        // Add merge rule: (4, 4) -> 6  (C + C -> CC)
+        tok.merges.insert((4, 4), 6);
 
-        let ids = tok.encode("CCO");
-        assert_eq!(ids, vec![2, 1]); // CC, O
+        let ids = tok.encode("CCO", false);
+        assert_eq!(ids, vec![6, 5]); // CC, O
 
         let decoded = tok.decode(ids).unwrap();
         assert_eq!(decoded, "CCO");

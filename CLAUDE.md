@@ -52,7 +52,7 @@ cargo clippy -- -D warnings
 
 ### Core Implementation (`src/lib.rs`)
 
-Single-file Rust implementation (~1100 lines) containing:
+Single-file Rust implementation (~1200 lines) containing:
 
 - **SMILES Pre-tokenization**: Regex-based atom-level tokenization that handles multi-character atoms (Br, Cl), bracket atoms ([C@@H], [N+]), ring closures, stereochemistry
 - **BPE Training**: Parallel pair counting with Rayon, heap-based merge selection, incremental updates

@@ -423,6 +423,19 @@ gunzip chembl_36_chemreps.txt.gz
 wget https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-SMILES.gz
 ```
 
+## Citation
+
+If you use rustmolbpe in your research, please cite it:
+
+```bibtex
+@software{rustmolbpe,
+  author = {Fooladi, Hosein},
+  title = {rustmolbpe: A High-Performance BPE Tokenizer for Molecular SMILES},
+  url = {https://github.com/HFooladi/rustmolbpe},
+  year = {2026}
+}
+```
+
 ## License
 
 MIT

@@ -433,6 +433,57 @@ gunzip chembl_36_chemreps.txt.gz
 wget https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-SMILES.gz
 ```
 
+## Troubleshooting
+
+### Installation Issues
+
+**"maturin not found"**
+```bash
+pip install maturin
+```
+
+**"Rust compiler not found"**
+Install Rust from https://rustup.rs/:
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+**Build fails with "VIRTUAL_ENV and CONDA_PREFIX both set"**
+```bash
+unset CONDA_PREFIX && maturin develop --release
+```
+
+### Runtime Issues
+
+**"Unknown token" error when decoding**
+The token ID is not in the vocabulary. This can happen if:
+- You're using a different vocabulary than the one used for encoding
+- The ID is out of range
+
+```python
+# Check vocabulary size
+print(tokenizer.vocab_size)
+
+# Verify token exists
+try:
+    token = tokenizer.id_to_token(some_id)
+except ValueError:
+    print(f"ID {some_id} not in vocabulary")
+```
+
+**Unknown atoms encoded as UNK**
+Atoms not seen during training are encoded as UNK (ID 1). Train on a larger/more diverse dataset or use a pre-trained vocabulary.
+
+```python
+# Check if a SMILES contains unknown atoms
+ids = tokenizer.encode("C[Xe]C")  # Xenon might be unknown
+if tokenizer.unk_token_id in ids:
+    print("Contains unknown atoms")
+```
+
+**Pickle/multiprocessing errors**
+Ensure you're using rustmolbpe >= 0.2.0 which includes pickle support.
+
 ## Citation
 
 If you use rustmolbpe in your research, please cite it:

@@ -702,7 +702,10 @@ impl SmilesTokenizer {
             .collect()
     }
 
-    /// Return the vocabulary as a list of (token_string, token_id) tuples
+    /// Return the vocabulary as a list of (token_string, token_id) tuples.
+    ///
+    /// Returns all tokens in the vocabulary including special tokens (PAD, UNK, BOS, EOS),
+    /// base atoms, and merged tokens. Tokens are returned in ID order.
     pub fn get_vocabulary(&self) -> Vec<(String, u32)> {
         self.id_to_atom
             .iter()
@@ -766,7 +769,16 @@ impl SmilesTokenizer {
         result
     }
 
-    /// Decode token IDs back to a SMILES string
+    /// Decode token IDs back to a SMILES string.
+    ///
+    /// # Arguments
+    /// * `ids` - Vector of token IDs to decode
+    ///
+    /// # Returns
+    /// The reconstructed SMILES string
+    ///
+    /// # Errors
+    /// Returns `PyValueError` if any token ID is not in the vocabulary
     pub fn decode(&self, ids: Vec<u32>) -> PyResult<String> {
         let mut result = String::new();
 
@@ -954,7 +966,16 @@ impl SmilesTokenizer {
         )
     }
 
-    /// Get token string for a given token ID
+    /// Get token string for a given token ID.
+    ///
+    /// # Arguments
+    /// * `id` - The token ID to look up
+    ///
+    /// # Returns
+    /// The token string corresponding to the ID
+    ///
+    /// # Errors
+    /// Returns `PyValueError` if the ID is not in the vocabulary
     pub fn id_to_token(&self, id: u32) -> PyResult<String> {
         if (id as usize) < self.id_to_atom.len() {
             Ok(self.id_to_atom[id as usize].to_string())
@@ -966,7 +987,16 @@ impl SmilesTokenizer {
         }
     }
 
-    /// Get token ID for a given token string
+    /// Get token ID for a given token string.
+    ///
+    /// # Arguments
+    /// * `token` - The token string to look up
+    ///
+    /// # Returns
+    /// The token ID corresponding to the string
+    ///
+    /// # Errors
+    /// Returns `PyValueError` if the token is not in the vocabulary
     pub fn token_to_id(&self, token: &str) -> PyResult<u32> {
         self.atom_to_id
             .get(&CompactString::from(token))
@@ -1066,7 +1096,21 @@ impl SmilesTokenizer {
     }
 }
 
-/// Tokenize a SMILES string into atom-level tokens (exposed to Python)
+/// Tokenize a SMILES string into atom-level tokens.
+///
+/// Splits a SMILES string into its constituent atoms and tokens using a regex pattern.
+/// Handles multi-character atoms (Br, Cl), bracket atoms ([C@@H], [N+]), ring closures,
+/// bonds, and stereochemistry markers.
+///
+/// # Arguments
+/// * `smiles` - The SMILES string to tokenize
+///
+/// # Returns
+/// A vector of token strings representing the atoms and structural elements
+///
+/// # Example outputs
+/// - `atomwise_tokenize("CCO")` returns `["C", "C", "O"]`
+/// - `atomwise_tokenize("[C@@H](O)C")` returns `["[C@@H]", "(", "O", ")", "C"]`
 #[pyfunction]
 #[pyo3(name = "atomwise_tokenize")]
 fn atomwise_tokenize_py(smiles: &str) -> Vec<String> {
@@ -1272,5 +1316,151 @@ mod tests {
 
         let decoded = tok.decode(ids).unwrap();
         assert_eq!(decoded, "CCO");
+    }
+
+    #[test]
+    fn test_is_trained() {
+        let mut tok = SmilesTokenizer::new();
+        assert!(!tok.is_trained());
+
+        // Add a merge rule
+        tok.merges.insert((4, 5), 6);
+        assert!(tok.is_trained());
+    }
+
+    #[test]
+    fn test_get_merges() {
+        let mut tok = SmilesTokenizer::new();
+
+        // Set up vocabulary
+        tok.id_to_atom.push(CompactString::from("C")); // ID 4
+        tok.id_to_atom.push(CompactString::from("O")); // ID 5
+        tok.id_to_atom.push(CompactString::from("CC")); // ID 6
+        tok.id_to_atom.push(CompactString::from("CO")); // ID 7
+        tok.atom_to_id.insert(CompactString::from("C"), 4);
+        tok.atom_to_id.insert(CompactString::from("O"), 5);
+        tok.atom_to_id.insert(CompactString::from("CC"), 6);
+        tok.atom_to_id.insert(CompactString::from("CO"), 7);
+
+        // Add merge rules
+        tok.merges.insert((4, 4), 6); // C + C -> CC
+        tok.merges.insert((4, 5), 7); // C + O -> CO
+
+        let merges = tok.get_merges();
+        assert_eq!(merges.len(), 2);
+
+        // Merges should be sorted by merged token ID
+        assert_eq!(
+            merges[0],
+            ("C".to_string(), "C".to_string(), "CC".to_string())
+        );
+        assert_eq!(
+            merges[1],
+            ("C".to_string(), "O".to_string(), "CO".to_string())
+        );
+    }
+
+    #[test]
+    fn test_special_token_ids() {
+        let tok = SmilesTokenizer::new();
+        assert_eq!(tok.pad_token_id(), 0);
+        assert_eq!(tok.unk_token_id(), 1);
+        assert_eq!(tok.bos_token_id(), 2);
+        assert_eq!(tok.eos_token_id(), 3);
+    }
+
+    #[test]
+    fn test_special_token_strings() {
+        let tok = SmilesTokenizer::new();
+        assert_eq!(tok.pad_token(), "<pad>");
+        assert_eq!(tok.unk_token(), "<unk>");
+        assert_eq!(tok.bos_token(), "<bos>");
+        assert_eq!(tok.eos_token(), "<eos>");
+    }
+
+    #[test]
+    fn test_encode_empty_smiles() {
+        let tok = SmilesTokenizer::new();
+
+        // Without special tokens
+        let ids = tok.encode("", false);
+        assert!(ids.is_empty());
+
+        // With special tokens
+        let ids = tok.encode("", true);
+        assert_eq!(ids, vec![2, 3]); // BOS, EOS
+    }
+
+    #[test]
+    fn test_encode_unknown_atoms() {
+        let mut tok = SmilesTokenizer::new();
+
+        // Add only C to vocabulary
+        tok.id_to_atom.push(CompactString::from("C")); // ID 4
+        tok.atom_to_id.insert(CompactString::from("C"), 4);
+
+        // Encoding "CO" should use UNK for O
+        let ids = tok.encode("CO", false);
+        assert_eq!(ids, vec![4, 1]); // C, UNK
+    }
+
+    #[test]
+    fn test_encode_with_special_tokens() {
+        let mut tok = SmilesTokenizer::new();
+
+        tok.id_to_atom.push(CompactString::from("C")); // ID 4
+        tok.id_to_atom.push(CompactString::from("O")); // ID 5
+        tok.atom_to_id.insert(CompactString::from("C"), 4);
+        tok.atom_to_id.insert(CompactString::from("O"), 5);
+
+        let ids = tok.encode("CO", true);
+        assert_eq!(ids, vec![2, 4, 5, 3]); // BOS, C, O, EOS
+    }
+
+    #[test]
+    fn test_get_vocabulary() {
+        let mut tok = SmilesTokenizer::new();
+
+        tok.id_to_atom.push(CompactString::from("C")); // ID 4
+        tok.id_to_atom.push(CompactString::from("O")); // ID 5
+        tok.atom_to_id.insert(CompactString::from("C"), 4);
+        tok.atom_to_id.insert(CompactString::from("O"), 5);
+
+        let vocab = tok.get_vocabulary();
+        assert_eq!(vocab.len(), 6); // 4 special + 2 atoms
+
+        // Check special tokens
+        assert_eq!(vocab[0], ("<pad>".to_string(), 0));
+        assert_eq!(vocab[1], ("<unk>".to_string(), 1));
+        assert_eq!(vocab[2], ("<bos>".to_string(), 2));
+        assert_eq!(vocab[3], ("<eos>".to_string(), 3));
+
+        // Check atoms
+        assert_eq!(vocab[4], ("C".to_string(), 4));
+        assert_eq!(vocab[5], ("O".to_string(), 5));
+    }
+
+    #[test]
+    fn test_vocab_size_and_base_vocab() {
+        let mut tok = SmilesTokenizer::new();
+
+        tok.id_to_atom.push(CompactString::from("C")); // ID 4
+        tok.id_to_atom.push(CompactString::from("O")); // ID 5
+        tok.id_to_atom.push(CompactString::from("CC")); // ID 6, merged
+        tok.atom_to_id.insert(CompactString::from("C"), 4);
+        tok.atom_to_id.insert(CompactString::from("O"), 5);
+        tok.atom_to_id.insert(CompactString::from("CC"), 6);
+        tok.merges.insert((4, 4), 6);
+
+        assert_eq!(tok.vocab_size(), 7); // 4 special + 2 base + 1 merged
+        assert_eq!(tok.base_vocab_size(), 6); // vocab_size - num_merges
+        assert_eq!(tok.num_merges(), 1);
+    }
+
+    #[test]
+    fn test_default_trait() {
+        let tok = SmilesTokenizer::default();
+        assert_eq!(tok.id_to_atom.len(), 4); // Special tokens
+        assert!(!tok.is_trained());
     }
 }

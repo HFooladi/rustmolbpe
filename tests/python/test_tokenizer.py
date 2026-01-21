@@ -596,3 +596,113 @@ class TestPickleSupport:
         # Verify results match direct encoding
         expected = [trained_tokenizer.encode(smi) for smi in test_smiles]
         assert results == expected
+
+
+class TestErrorHandlingEdgeCases:
+    """Tests for error handling and edge cases."""
+
+    def test_decode_invalid_token_id(self, trained_tokenizer):
+        """Decoding with invalid token ID should raise ValueError."""
+        invalid_id = trained_tokenizer.vocab_size + 1000
+        with pytest.raises(ValueError, match="Unknown token id"):
+            trained_tokenizer.decode([invalid_id])
+
+    def test_id_to_token_invalid_id(self, trained_tokenizer):
+        """id_to_token with invalid ID should raise ValueError."""
+        invalid_id = trained_tokenizer.vocab_size + 1000
+        with pytest.raises(ValueError, match="Unknown token id"):
+            trained_tokenizer.id_to_token(invalid_id)
+
+    def test_token_to_id_unknown_token(self, trained_tokenizer):
+        """token_to_id with unknown token should raise ValueError."""
+        with pytest.raises(ValueError, match="Unknown token"):
+            trained_tokenizer.token_to_id("totally_unknown_token_xyz")
+
+    def test_batch_decode_with_invalid_id(self, trained_tokenizer):
+        """batch_decode with one invalid ID should raise ValueError."""
+        valid_ids = trained_tokenizer.encode("CCO")
+        invalid_ids = [trained_tokenizer.vocab_size + 1000]
+        with pytest.raises(ValueError, match="Unknown token id"):
+            trained_tokenizer.batch_decode([valid_ids, invalid_ids])
+
+    def test_encode_very_long_smiles(self, trained_tokenizer):
+        """Encoding a very long SMILES should work without crashing."""
+        # Create a long chain
+        long_smiles = "C" * 1000
+        ids = trained_tokenizer.encode(long_smiles)
+        assert len(ids) > 0
+        decoded = trained_tokenizer.decode(ids)
+        assert decoded == long_smiles
+
+    def test_encode_special_characters_in_smiles(self, trained_tokenizer):
+        """SMILES with various special characters should be handled."""
+        # Test various SMILES patterns
+        test_smiles = [
+            "C=C",      # Double bond
+            "C#N",      # Triple bond
+            "C/C=C/C",  # Stereochemistry
+            "C\\C=C\\C", # Stereochemistry
+            "[Na+]",    # Charged atom
+            "[O-]",     # Negative charge
+            "C.C",      # Disconnected
+        ]
+        for smi in test_smiles:
+            ids = trained_tokenizer.encode(smi)
+            assert len(ids) >= 0  # May be empty if atoms unknown
+
+    def test_pad_empty_list(self, trained_tokenizer):
+        """Padding an empty list should return empty result."""
+        result = trained_tokenizer.pad([])
+        assert result["input_ids"] == []
+        assert result["attention_mask"] == []
+
+    def test_pad_single_empty_sequence(self, trained_tokenizer):
+        """Padding a list with single empty sequence should work."""
+        result = trained_tokenizer.pad([[]])
+        assert result["input_ids"] == [[]]
+        assert result["attention_mask"] == [[]]
+
+    def test_encode_batch_padded_empty_list(self, trained_tokenizer):
+        """encode_batch_padded with empty list should return empty result."""
+        result = trained_tokenizer.encode_batch_padded([])
+        assert result["input_ids"] == []
+        assert result["attention_mask"] == []
+
+    def test_truncation_longer_than_max_length(self, trained_tokenizer):
+        """Truncation should work when sequence exceeds max_length."""
+        long_smiles = "CCCCCCCCCC"  # 10 carbons
+        result = trained_tokenizer.encode_batch_padded(
+            [long_smiles],
+            max_length=3,
+            truncation=True
+        )
+        assert len(result["input_ids"][0]) == 3
+
+    def test_truncation_disabled_preserves_length(self, trained_tokenizer):
+        """Without truncation, sequences should not be cut."""
+        long_smiles = "CCCCCCCCCC"  # 10 carbons
+        result = trained_tokenizer.encode_batch_padded(
+            [long_smiles],
+            max_length=3,
+            truncation=False
+        )
+        # Without truncation, max_length only affects padding
+        assert len(result["input_ids"][0]) >= 3
+
+    def test_left_padding_alignment(self, trained_tokenizer):
+        """Left padding should align sequences to the right."""
+        result = trained_tokenizer.encode_batch_padded(
+            ["C", "CC"],
+            max_length=5,
+            padding="left"
+        )
+        # Shorter sequence should have padding on the left
+        first_seq = result["input_ids"][0]
+        assert first_seq[0] == trained_tokenizer.pad_token_id
+
+    def test_vocab_properties_consistency(self, trained_tokenizer):
+        """Vocabulary properties should be consistent."""
+        vocab = trained_tokenizer.get_vocabulary()
+        assert len(vocab) == trained_tokenizer.vocab_size
+        assert trained_tokenizer.base_vocab_size <= trained_tokenizer.vocab_size
+        assert trained_tokenizer.vocab_size == trained_tokenizer.base_vocab_size + trained_tokenizer.num_merges

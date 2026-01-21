@@ -60,3 +60,43 @@ jobs:
 
       - name: Run clippy
         run: cargo clippy -- -D warnings
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Install Python dependencies
+        run: pip install maturin pytest pytest-cov
+
+      - name: Build and install package
+        run: maturin develop
+
+      - name: Run Rust tests with coverage
+        run: cargo tarpaulin --out xml --output-dir coverage
+
+      - name: Run Python tests with coverage
+        run: pytest tests/python/ -v --cov=rustmolbpe --cov-report=xml:coverage/python-coverage.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/cobertura.xml,coverage/python-coverage.xml
+          fail_ci_if_error: false
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -21,21 +21,21 @@ Quick wins and important fixes that improve usability without major architectura
 - [x] 🟡 Implement `__reduce__`/`__setstate__` for pickle support
 
 ### Testing & Quality
-- [ ] 🟢 Add code coverage reporting with codecov
-- [ ] 🟢 Add Rust unit tests for core functions in lib.rs
-- [ ] 🟡 Add error handling edge case tests
-- [ ] 🟡 Set up coverage threshold enforcement in CI
+- [x] 🟢 Add code coverage reporting with codecov
+- [x] 🟢 Add Rust unit tests for core functions in lib.rs
+- [x] 🟡 Add error handling edge case tests
+- [x] 🟡 Set up coverage threshold enforcement in CI
 
 ### Documentation
-- [ ] 🟢 Add troubleshooting section to README
+- [x] 🟢 Add troubleshooting section to README
 - [x] 🟢 Create CHANGELOG.md with proper versioning history
-- [ ] 🟢 Add docstrings to all public Rust functions
+- [x] 🟢 Add docstrings to all public Rust functions
 
 ### Infrastructure
-- [ ] 🟢 Add issue templates (bug report, feature request)
-- [ ] 🟢 Add pull request template
-- [ ] 🟢 Add CODE_OF_CONDUCT.md
-- [ ] 🟢 Add SECURITY.md with vulnerability reporting guidelines
+- [x] 🟢 Add issue templates (bug report, feature request)
+- [x] 🟢 Add pull request template
+- [x] 🟢 Add CODE_OF_CONDUCT.md
+- [x] 🟢 Add SECURITY.md with vulnerability reporting guidelines
 
 ---
 

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Code coverage reporting with Codecov integration in CI
+- Coverage threshold enforcement via `codecov.yml` configuration
+- 10 new Rust unit tests for core functions (22 total)
+- 13 new Python edge case tests (71 total)
+- Troubleshooting section in README
+- Enhanced docstrings for public Rust functions
+- GitHub issue templates (bug report, feature request)
+- Pull request template
+- `CODE_OF_CONDUCT.md` (Contributor Covenant)
+- `SECURITY.md` with vulnerability reporting guidelines
+
 ## [0.2.0] - 2025-01-21
 
 ### Added

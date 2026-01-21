@@ -13,9 +13,15 @@ pip install rustmolbpe
 ### From Source
 
 ```bash
-pip install maturin
 git clone https://github.com/HFooladi/rustmolbpe.git
 cd rustmolbpe
+
+# Create virtual environment with uv
+uv venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies and build
+uv pip install maturin
 maturin develop --release
 ```
 

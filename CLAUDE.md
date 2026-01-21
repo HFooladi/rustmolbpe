@@ -9,6 +9,11 @@ rustmolbpe is a high-performance BPE (Byte Pair Encoding) tokenizer for molecula
 ## Build Commands
 
 ```bash
+# Create virtual environment with uv (first time)
+uv venv .venv
+source .venv/bin/activate
+uv pip install maturin pytest pytest-cov
+
 # Development build (fast, unoptimized)
 maturin develop
 
@@ -50,16 +55,33 @@ cargo clippy -- -D warnings
 
 ## Architecture
 
-### Core Implementation (`src/lib.rs`)
+### Modular Structure (`src/`)
 
-Single-file Rust implementation (~1200 lines) containing:
+The codebase is organized into focused modules:
 
-- **SMILES Pre-tokenization**: Regex-based atom-level tokenization that handles multi-character atoms (Br, Cl), bracket atoms ([C@@H], [N+]), ring closures, stereochemistry
-- **BPE Training**: Parallel pair counting with Rayon, heap-based merge selection, incremental updates
-- **Greedy Encoding**: Longest-match encoding for optimal compression (not merge-order BPE)
-- **Special Tokens**: Fixed IDs 0-3 for PAD, UNK, BOS, EOS
+```
+src/
+├── lib.rs              # PyO3 module + SmilesTokenizer struct + re-exports (~730 lines)
+├── constants.rs        # SMILES pattern, special tokens, type aliases (~30 lines)
+├── word.rs             # Word, MergeJob structs for training internals (~150 lines)
+├── training.rs         # BPE training algorithm (~120 lines)
+├── encoding.rs         # encode/decode methods (~180 lines)
+├── vocabulary.rs       # load/save vocabulary, query methods (~220 lines)
+├── padding.rs          # pad, encode_batch_padded (~120 lines)
+├── serialization.rs    # __reduce__, __setstate__ pickle support (~180 lines)
+└── utils.rs            # atomwise_tokenize helper (~130 lines)
+```
 
-Key data structures:
+### Core Components
+
+- **SMILES Pre-tokenization** (`utils.rs`): Regex-based atom-level tokenization that handles multi-character atoms (Br, Cl), bracket atoms ([C@@H], [N+]), ring closures, stereochemistry
+- **BPE Training** (`training.rs`, `word.rs`): Parallel pair counting with Rayon, heap-based merge selection, incremental updates
+- **Greedy Encoding** (`encoding.rs`): Longest-match encoding for optimal compression (not merge-order BPE)
+- **Special Tokens** (`constants.rs`): Fixed IDs 0-3 for PAD, UNK, BOS, EOS
+- **Vocabulary I/O** (`vocabulary.rs`): SMILESPE-compatible format loading/saving
+- **Serialization** (`serialization.rs`): Full pickle support for multiprocessing
+
+Key data structures (in `lib.rs`):
 ```rust
 pub struct SmilesTokenizer {
     merges: HashMap<(u32, u32), u32>,      // Pair -> merged ID

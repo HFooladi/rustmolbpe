@@ -14,21 +14,39 @@ A high-performance BPE (Byte Pair Encoding) tokenizer for molecular SMILES writt
 
 ## Installation
 
+### From PyPI (Recommended)
+
+```bash
+pip install rustmolbpe
+```
+
 ### From source (requires Rust toolchain)
 
 ```bash
-# Install maturin if not already installed
-pip install maturin
-
-# Build and install
+# Clone the repository
+git clone https://github.com/HFooladi/rustmolbpe.git
 cd rustmolbpe
+
+# Create virtual environment with uv
+uv venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install build dependencies and build
+uv pip install maturin
 maturin develop --release
 ```
 
 ### Development install
 
 ```bash
-pip install maturin
+# Create virtual environment with uv
+uv venv .venv
+source .venv/bin/activate
+
+# Install dev dependencies
+uv pip install maturin pytest pytest-cov
+
+# Development build (faster, unoptimized)
 maturin develop
 ```
 
@@ -346,12 +364,15 @@ tokenizer.save_vocabulary("chembl_vocab.txt")
 ## Running Tests
 
 ```bash
-# Run Rust tests
-cargo test
+# Create venv and install dependencies
+uv venv .venv
+source .venv/bin/activate
+uv pip install maturin pytest
 
-# Run Python tests (after building)
+# Build and run tests
 maturin develop
-pytest tests/python/
+cargo test                    # Rust tests
+pytest tests/python/ -v       # Python tests
 ```
 
 ## Performance
@@ -439,13 +460,19 @@ wget https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-SMILES.gz
 
 **"maturin not found"**
 ```bash
-pip install maturin
+uv pip install maturin
 ```
 
 **"Rust compiler not found"**
 Install Rust from https://rustup.rs/:
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+**"uv not found"**
+Install uv from https://docs.astral.sh/uv/:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 **Build fails with "VIRTUAL_ENV and CONDA_PREFIX both set"**

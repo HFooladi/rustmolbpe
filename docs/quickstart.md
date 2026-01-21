@@ -4,6 +4,14 @@ This guide will help you get started with rustmolbpe.
 
 ## Installation
 
+### From PyPI (Recommended)
+
+```bash
+pip install rustmolbpe
+```
+
+### From Source
+
 ```bash
 pip install maturin
 git clone https://github.com/HFooladi/rustmolbpe.git
@@ -132,6 +140,42 @@ for token, token_id in vocab[:10]:
 # Lookup
 token_id = tokenizer.token_to_id("CC")
 token = tokenizer.id_to_token(token_id)
+
+# Check if tokenizer is trained
+print(tokenizer.is_trained())  # True
+
+# Inspect merge rules
+merges = tokenizer.get_merges()
+print(merges[:3])  # First 3 merge rules
+```
+
+## Serialization
+
+### Pickle Support
+
+Tokenizers can be pickled for saving or multiprocessing:
+
+```python
+import pickle
+
+# Save to bytes
+data = pickle.dumps(tokenizer)
+
+# Restore
+restored = pickle.loads(data)
+assert tokenizer.encode("CCO") == restored.encode("CCO")
+```
+
+### Multiprocessing
+
+```python
+from multiprocessing import Pool
+
+def encode_smiles(smiles):
+    return tokenizer.encode(smiles)
+
+with Pool(4) as pool:
+    results = pool.map(encode_smiles, smiles_list)
 ```
 
 ## Next Steps

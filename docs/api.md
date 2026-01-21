@@ -371,3 +371,94 @@ Convert token string to token ID.
 | `unk_token` | str | UNK token string (`<unk>`) |
 | `bos_token` | str | BOS token string (`<bos>`) |
 | `eos_token` | str | EOS token string (`<eos>`) |
+
+---
+
+### State Inspection
+
+#### is_trained
+
+```python
+def is_trained(self) -> bool
+```
+
+Check if the tokenizer has been trained or has a vocabulary loaded.
+
+**Returns:**
+
+- `bool`: True if the tokenizer has merge rules, False otherwise
+
+**Example:**
+
+```python
+tokenizer = rustmolbpe.SmilesTokenizer()
+print(tokenizer.is_trained())  # False
+
+tokenizer.train_from_iterator(iter(["CCO", "CCC"]), vocab_size=50)
+print(tokenizer.is_trained())  # True
+```
+
+#### get_merges
+
+```python
+def get_merges(self) -> List[Tuple[str, str, str]]
+```
+
+Get the learned merge rules as tuples.
+
+**Returns:**
+
+- `List[Tuple[str, str, str]]`: List of (left_token, right_token, merged_token) tuples, ordered by merge priority
+
+**Example:**
+
+```python
+tokenizer = rustmolbpe.SmilesTokenizer()
+tokenizer.load_vocabulary("data/chembl36_vocab.txt")
+
+merges = tokenizer.get_merges()
+print(merges[:3])  # First 3 merge rules
+# [('c', 'c', 'cc'), ('C', 'C', 'CC'), ('c', '1', 'c1')]
+```
+
+---
+
+### Serialization
+
+#### Pickle Support
+
+`SmilesTokenizer` supports Python's pickle protocol for serialization.
+
+```python
+import pickle
+
+tokenizer = rustmolbpe.SmilesTokenizer()
+tokenizer.load_vocabulary("data/chembl36_vocab.txt")
+
+# Save to bytes
+data = pickle.dumps(tokenizer)
+
+# Restore from bytes
+restored = pickle.loads(data)
+
+# Verify
+assert tokenizer.encode("CCO") == restored.encode("CCO")
+```
+
+**Multiprocessing Example:**
+
+```python
+from multiprocessing import Pool
+import rustmolbpe
+
+def encode_smiles(smiles):
+    # tokenizer is pickled and sent to worker processes
+    return tokenizer.encode(smiles)
+
+tokenizer = rustmolbpe.SmilesTokenizer()
+tokenizer.load_vocabulary("data/chembl36_vocab.txt")
+
+smiles_list = ["CCO", "c1ccccc1", "CC(=O)O"]
+with Pool(4) as pool:
+    results = pool.map(encode_smiles, smiles_list)
+```

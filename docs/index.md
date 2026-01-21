@@ -2,6 +2,8 @@
 
 A high-performance BPE (Byte Pair Encoding) tokenizer for molecular SMILES written in Rust with Python bindings.
 
+**Current version: 0.2.0**
+
 ## Features
 
 - **SMILES-aware tokenization**: Correctly handles multi-character atoms (Br, Cl), bracket atoms ([C@@H], [N+]), ring closures, and stereochemistry
@@ -10,6 +12,8 @@ A high-performance BPE (Byte Pair Encoding) tokenizer for molecular SMILES writt
 - **Special tokens**: Built-in PAD, UNK, BOS, EOS tokens for sequence modeling
 - **Batch padding**: Ready for transformer models with attention masks
 - **SMILESPE compatibility**: Load and save vocabularies in SMILESPE format
+- **Pickle support**: Full serialization support for multiprocessing workflows
+- **Type hints**: PEP 561 compliant with `py.typed` marker
 
 ## Performance
 
@@ -27,7 +31,7 @@ rustmolbpe is significantly faster than the original Python SMILESPE implementat
 
 ## Installation
 
-### From PyPI (coming soon)
+### From PyPI
 
 ```bash
 pip install rustmolbpe

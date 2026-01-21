@@ -42,6 +42,10 @@ ENV/
 .pytest_cache/
 .coverage
 htmlcov/
+coverage/
+
+# MkDocs
+site/
 
 # Maturin
 *.whl

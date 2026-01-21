@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-01-21
+
+### Added
+
+- `py.typed` marker file for PEP 561 compliance, enabling type checking in downstream projects
+- `is_trained()` method to check if a tokenizer has been trained or has a vocabulary loaded
+- `get_merges()` method to retrieve learned merge rules as `(left, right, merged)` string tuples
+- Pickle serialization support via `__reduce__` and `__setstate__` methods
+- Multiprocessing compatibility for parallel tokenization workflows
+- Comprehensive test suite for new features (15 new tests)
+
+### Changed
+
+- Added `module = "rustmolbpe"` attribute to `SmilesTokenizer` class for proper pickle support
+- Updated `pyproject.toml` to include type stubs and `py.typed` marker in wheel distribution
+
 ## [0.1.0] - 2025-01-08
 
 ### Added
@@ -35,5 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 16-18x faster training than SMILESPE
 - ~200,000-280,000 SMILES/second batch encoding
 
-[Unreleased]: https://github.com/HFooladi/rustmolbpe/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/HFooladi/rustmolbpe/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/HFooladi/rustmolbpe/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/HFooladi/rustmolbpe/releases/tag/v0.1.0

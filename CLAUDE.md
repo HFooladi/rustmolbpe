@@ -71,7 +71,15 @@ pub struct SmilesTokenizer {
 
 ### Python Bindings
 
-PyO3 exposes `SmilesTokenizer` class and `atomwise_tokenize()` function. Type stubs in `rustmolbpe.pyi` for IDE support.
+PyO3 exposes `SmilesTokenizer` class and `atomwise_tokenize()` function. Type stubs in `rustmolbpe.pyi` for IDE support. The package includes `py.typed` marker for PEP 561 compliance.
+
+Key Python API methods:
+- `train_from_iterator()`, `load_vocabulary()`, `save_vocabulary()` - Training and I/O
+- `encode()`, `decode()`, `batch_encode()`, `batch_decode()` - Tokenization
+- `pad()`, `encode_batch_padded()` - Batch padding with attention masks
+- `is_trained()` - Check if tokenizer has vocabulary loaded
+- `get_merges()` - Get merge rules as `(left, right, merged)` tuples
+- Pickle support via `__reduce__`/`__setstate__` for serialization and multiprocessing
 
 ### Pre-trained Vocabularies
 

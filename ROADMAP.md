@@ -14,11 +14,11 @@ This document outlines the planned improvements and future direction for rustmol
 Quick wins and important fixes that improve usability without major architectural changes.
 
 ### Python API Improvements
-- [ ] 🟢 Add `py.typed` marker for PEP 561 compliance
-- [ ] 🟢 Add `is_trained()` method to check tokenizer state
-- [ ] 🟢 Add `get_vocab_size()` method
-- [ ] 🟡 Add `get_merges()` method to inspect learned merge rules
-- [ ] 🟡 Implement `__getstate__`/`__setstate__` for pickle support
+- [x] 🟢 Add `py.typed` marker for PEP 561 compliance
+- [x] 🟢 Add `is_trained()` method to check tokenizer state
+- [x] 🟢 ~~Add `get_vocab_size()` method~~ (skipped - `vocab_size` property already exists)
+- [x] 🟡 Add `get_merges()` method to inspect learned merge rules
+- [x] 🟡 Implement `__reduce__`/`__setstate__` for pickle support
 
 ### Testing & Quality
 - [ ] 🟢 Add code coverage reporting with codecov
@@ -28,7 +28,7 @@ Quick wins and important fixes that improve usability without major architectura
 
 ### Documentation
 - [ ] 🟢 Add troubleshooting section to README
-- [ ] 🟢 Create CHANGELOG.md with proper versioning history
+- [x] 🟢 Create CHANGELOG.md with proper versioning history
 - [ ] 🟢 Add docstrings to all public Rust functions
 
 ### Infrastructure

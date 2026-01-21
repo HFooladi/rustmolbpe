@@ -287,6 +287,16 @@ class SmilesTokenizer:
 
     def token_to_id(self, token: str) -> int:
         """Convert token string to token ID."""
+
+    # State inspection
+    def is_trained(self) -> bool:
+        """Check if tokenizer has been trained or has vocabulary loaded."""
+
+    def get_merges(self) -> List[Tuple[str, str, str]]:
+        """Get merge rules as (left, right, merged) tuples."""
+
+    # Pickle support (for serialization and multiprocessing)
+    # Implements __reduce__ and __setstate__ for full pickle compatibility
 ```
 
 ### Utility Functions

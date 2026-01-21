@@ -80,17 +80,27 @@ jobs:
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin
 
-      - name: Install Python dependencies
-        run: pip install maturin pytest pytest-cov
+      - name: Install uv
+        run: pip install uv
+
+      - name: Create virtual environment and install dependencies
+        run: |
+          uv venv .venv
+          source .venv/bin/activate
+          uv pip install maturin pytest pytest-cov
 
       - name: Build and install package
-        run: maturin develop
+        run: |
+          source .venv/bin/activate
+          maturin develop --release
 
       - name: Run Rust tests with coverage
         run: cargo tarpaulin --out xml --output-dir coverage
 
       - name: Run Python tests with coverage
-        run: pytest tests/python/ -v --cov=rustmolbpe --cov-report=xml:coverage/python-coverage.xml
+        run: |
+          source .venv/bin/activate
+          pytest tests/python/ -v --cov=rustmolbpe --cov-report=xml:coverage/python-coverage.xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

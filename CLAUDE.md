@@ -98,4 +98,33 @@ Example: `c c` means merge `c` + `c` into `cc`.
 
 - GitHub Actions runs tests on Python 3.9-3.12
 - Linting with `cargo fmt --check` and `cargo clippy`
+- Code coverage with Codecov (Rust via cargo-tarpaulin, Python via pytest-cov)
 - PyPI publishing workflow on release (`publish.yml`)
+
+### Debugging CI Failures
+
+Use `gh_cli` (not `gh`) to investigate GitHub Actions failures:
+
+```bash
+# List recent workflow runs
+gh_cli run list --limit 5
+
+# View details of a specific run
+gh_cli run view <run_id>
+
+# View failed job logs
+gh_cli run view <run_id> --log-failed
+
+# View specific job logs
+gh_cli run view <run_id> --job=<job_id> --log
+```
+
+Common CI issues:
+- `maturin develop` requires a virtual environment; in CI, use `uv` to create a venv:
+  ```bash
+  uv venv .venv
+  source .venv/bin/activate
+  uv pip install maturin pytest pytest-cov
+  maturin develop --release
+  ```
+- Coverage job uses cargo-tarpaulin for Rust and pytest-cov for Python

@@ -1,6 +1,6 @@
 """Type stubs for rustmolbpe - High-performance BPE tokenizer for molecular SMILES."""
 
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 def atomwise_tokenize(smiles: str) -> List[str]:
     """Tokenize a SMILES string into atom-level tokens.
@@ -237,6 +237,37 @@ class SmilesTokenizer:
     @property
     def num_merges(self) -> int:
         """Number of learned merge operations."""
+        ...
+
+    def is_trained(self) -> bool:
+        """Check if the tokenizer has been trained or has a vocabulary loaded.
+
+        Returns:
+            True if the tokenizer has merge rules (trained or loaded), False otherwise.
+        """
+        ...
+
+    def get_merges(self) -> List[Tuple[str, str, str]]:
+        """Get the learned merge rules as (left, right, merged) tuples.
+
+        Returns a list of tuples where each tuple contains:
+        - left: The left token string in the merge rule
+        - right: The right token string in the merge rule
+        - merged: The resulting merged token string
+
+        Merges are returned in order of learning priority.
+
+        Returns:
+            List of (left, right, merged) string tuples.
+        """
+        ...
+
+    def __reduce__(self) -> Tuple[type, Tuple[()], Dict[str, Any]]:
+        """Pickle support: returns (cls, args, state) for serialization."""
+        ...
+
+    def __setstate__(self, state: Dict[str, Any]) -> None:
+        """Restore the tokenizer state from pickle serialization."""
         ...
 
     @property

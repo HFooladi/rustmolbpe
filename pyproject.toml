@@ -35,6 +35,7 @@ build-backend = "maturin"
 [tool.maturin]
 # Build features - enables extension-module only for Python builds
 features = ["extension-module"]
+include = ["rustmolbpe.pyi", "py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/python"]

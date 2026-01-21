@@ -5,6 +5,13 @@ import tempfile
 import os
 
 
+# Top-level function for multiprocessing test (local functions can't be pickled)
+def _encode_smiles_worker(tok_smiles):
+    """Worker function for multiprocessing test."""
+    tok, smiles = tok_smiles
+    return tok.encode(smiles)
+
+
 @pytest.fixture
 def tokenizer():
     """Create a fresh tokenizer instance."""
@@ -407,3 +414,185 @@ class TestPadding:
 
         for ids in result["input_ids"]:
             assert len(ids) == max_len
+
+
+class TestIsTrainedMethod:
+    """Tests for is_trained() method."""
+
+    def test_fresh_tokenizer_not_trained(self):
+        """A fresh tokenizer should return False for is_trained()."""
+        import rustmolbpe
+        tok = rustmolbpe.SmilesTokenizer()
+        assert tok.is_trained() is False
+
+    def test_trained_tokenizer_is_trained(self):
+        """After training, is_trained() should return True."""
+        import rustmolbpe
+        tok = rustmolbpe.SmilesTokenizer()
+        smiles = ["CCO", "CCC", "CCCC"] * 100
+        tok.train_from_iterator(iter(smiles), vocab_size=50)
+        assert tok.is_trained() is True
+
+    def test_after_load_vocabulary(self, trained_tokenizer):
+        """After loading vocabulary, is_trained() should return True."""
+        import rustmolbpe
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            vocab_path = f.name
+
+        try:
+            trained_tokenizer.save_vocabulary(vocab_path)
+
+            new_tok = rustmolbpe.SmilesTokenizer()
+            assert new_tok.is_trained() is False
+
+            new_tok.load_vocabulary(vocab_path)
+            assert new_tok.is_trained() is True
+        finally:
+            os.unlink(vocab_path)
+
+
+class TestGetMergesMethod:
+    """Tests for get_merges() method."""
+
+    def test_fresh_tokenizer_no_merges(self):
+        """A fresh tokenizer should return empty list for get_merges()."""
+        import rustmolbpe
+        tok = rustmolbpe.SmilesTokenizer()
+        merges = tok.get_merges()
+        assert merges == []
+
+    def test_trained_tokenizer_has_merges(self, trained_tokenizer):
+        """A trained tokenizer should return non-empty list."""
+        merges = trained_tokenizer.get_merges()
+        assert len(merges) > 0
+        assert len(merges) == trained_tokenizer.num_merges
+
+    def test_merge_tuple_structure(self, trained_tokenizer):
+        """Each merge should be a tuple of (str, str, str)."""
+        merges = trained_tokenizer.get_merges()
+        for merge in merges:
+            assert isinstance(merge, tuple)
+            assert len(merge) == 3
+            left, right, merged = merge
+            assert isinstance(left, str)
+            assert isinstance(right, str)
+            assert isinstance(merged, str)
+
+    def test_merged_is_concatenation(self, trained_tokenizer):
+        """The merged token should be concatenation of left and right."""
+        merges = trained_tokenizer.get_merges()
+        for left, right, merged in merges:
+            assert merged == left + right
+
+
+class TestPickleSupport:
+    """Tests for pickle serialization support."""
+
+    def test_pickle_fresh_tokenizer(self):
+        """A fresh tokenizer should be picklable."""
+        import pickle
+        import rustmolbpe
+
+        tok = rustmolbpe.SmilesTokenizer()
+        data = pickle.dumps(tok)
+        restored = pickle.loads(data)
+
+        assert restored.vocab_size == tok.vocab_size
+        assert restored.is_trained() == tok.is_trained()
+
+    def test_pickle_trained_tokenizer(self, trained_tokenizer):
+        """A trained tokenizer should be picklable."""
+        import pickle
+
+        data = pickle.dumps(trained_tokenizer)
+        restored = pickle.loads(data)
+
+        assert restored.vocab_size == trained_tokenizer.vocab_size
+        assert restored.num_merges == trained_tokenizer.num_merges
+        assert restored.is_trained() is True
+
+    def test_pickle_encode_decode_consistency(self, trained_tokenizer):
+        """Encoding should produce same results before and after pickling."""
+        import pickle
+
+        test_smiles = ["CCO", "CCC", "c1ccccc1", "CC(=O)O"]
+
+        # Encode before pickling
+        original_encodings = [trained_tokenizer.encode(smi) for smi in test_smiles]
+
+        # Pickle roundtrip
+        restored = pickle.loads(pickle.dumps(trained_tokenizer))
+
+        # Encode after pickling
+        restored_encodings = [restored.encode(smi) for smi in test_smiles]
+
+        assert original_encodings == restored_encodings
+
+    def test_pickle_vocabulary_consistency(self, trained_tokenizer):
+        """Vocabulary should be preserved after pickling."""
+        import pickle
+
+        original_vocab = trained_tokenizer.get_vocabulary()
+
+        restored = pickle.loads(pickle.dumps(trained_tokenizer))
+        restored_vocab = restored.get_vocabulary()
+
+        assert original_vocab == restored_vocab
+
+    def test_pickle_to_file(self, trained_tokenizer):
+        """Tokenizer should be picklable to and from a file."""
+        import pickle
+
+        with tempfile.NamedTemporaryFile(mode='wb', suffix='.pkl', delete=False) as f:
+            pickle_path = f.name
+            pickle.dump(trained_tokenizer, f)
+
+        try:
+            with open(pickle_path, 'rb') as f:
+                restored = pickle.load(f)
+
+            assert restored.vocab_size == trained_tokenizer.vocab_size
+            assert trained_tokenizer.encode("CCO") == restored.encode("CCO")
+        finally:
+            os.unlink(pickle_path)
+
+    def test_pickle_different_protocols(self, trained_tokenizer):
+        """Tokenizer should work with all pickle protocols."""
+        import pickle
+
+        for protocol in range(pickle.HIGHEST_PROTOCOL + 1):
+            data = pickle.dumps(trained_tokenizer, protocol=protocol)
+            restored = pickle.loads(data)
+            assert restored.encode("CCO") == trained_tokenizer.encode("CCO")
+
+    def test_pickle_special_tokens_preserved(self, trained_tokenizer):
+        """Special token IDs should be preserved after pickling."""
+        import pickle
+
+        restored = pickle.loads(pickle.dumps(trained_tokenizer))
+
+        assert restored.pad_token_id == 0
+        assert restored.unk_token_id == 1
+        assert restored.bos_token_id == 2
+        assert restored.eos_token_id == 3
+        assert restored.id_to_token(0) == "<pad>"
+        assert restored.id_to_token(1) == "<unk>"
+        assert restored.id_to_token(2) == "<bos>"
+        assert restored.id_to_token(3) == "<eos>"
+
+    def test_multiprocessing_compatibility(self, trained_tokenizer):
+        """Tokenizer should work with multiprocessing."""
+        import multiprocessing
+
+        test_smiles = ["CCO", "CCC", "CCCC", "c1ccccc1"]
+        args = [(trained_tokenizer, smi) for smi in test_smiles]
+
+        # Test with multiprocessing.Pool
+        # Uses module-level _encode_smiles_worker function (local functions can't be pickled)
+        with multiprocessing.Pool(2) as pool:
+            results = pool.map(_encode_smiles_worker, args)
+
+        # Verify results match direct encoding
+        expected = [trained_tokenizer.encode(smi) for smi in test_smiles]
+        assert results == expected

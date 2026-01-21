@@ -6,6 +6,7 @@ use std::io::{BufRead, BufReader, Write};
 use dary_heap::OctonaryHeap;
 use fancy_regex::Regex;
 use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyList, PyTuple};
 
 use ahash::{AHashMap, AHashSet};
 use compact_str::CompactString;
@@ -40,7 +41,7 @@ type Pair = (u32, u32);
 ///
 /// Unlike byte-level BPE tokenizers, this tokenizer uses atom-level pre-tokenization
 /// where multi-character atoms (like Br, Cl, [C@@H]) are treated as single tokens.
-#[pyclass]
+#[pyclass(module = "rustmolbpe")]
 pub struct SmilesTokenizer {
     /// Maps pairs of token IDs to their merged token ID
     pub merges: StdHashMap<Pair, u32>,
@@ -678,6 +679,29 @@ impl SmilesTokenizer {
         self.merges.len() as u32
     }
 
+    /// Check if the tokenizer has been trained or has a vocabulary loaded.
+    /// Returns true if there are merge rules, false otherwise.
+    pub fn is_trained(&self) -> bool {
+        !self.merges.is_empty()
+    }
+
+    /// Return the learned merge rules as (left, right, merged) string tuples.
+    /// Merges are returned in order of learning priority (by merged token ID).
+    pub fn get_merges(&self) -> Vec<(String, String, String)> {
+        let mut sorted_merges: Vec<_> = self.merges.iter().collect();
+        sorted_merges.sort_by_key(|&(_, &new_id)| new_id);
+
+        sorted_merges
+            .into_iter()
+            .map(|(&(left_id, right_id), &merged_id)| {
+                let left_str = self.id_to_atom[left_id as usize].to_string();
+                let right_str = self.id_to_atom[right_id as usize].to_string();
+                let merged_str = self.id_to_atom[merged_id as usize].to_string();
+                (left_str, right_str, merged_str)
+            })
+            .collect()
+    }
+
     /// Return the vocabulary as a list of (token_string, token_id) tuples
     pub fn get_vocabulary(&self) -> Vec<(String, u32)> {
         self.id_to_atom
@@ -950,6 +974,95 @@ impl SmilesTokenizer {
             .ok_or_else(|| {
                 pyo3::exceptions::PyValueError::new_err(format!("Unknown token: {}", token))
             })
+    }
+
+    /// Pickle support: return (cls, args, state) for serialization
+    pub fn __reduce__<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<(
+        Bound<'py, pyo3::types::PyType>,
+        Bound<'py, PyTuple>,
+        Bound<'py, PyDict>,
+    )> {
+        // Get the class type
+        let cls = py.get_type::<Self>();
+
+        // Create state dict
+        let state = PyDict::new(py);
+
+        // Serialize id_to_atom as list of strings
+        let id_to_atom_list: Vec<&str> = self.id_to_atom.iter().map(|s| s.as_str()).collect();
+        state.set_item("id_to_atom", PyList::new(py, id_to_atom_list)?)?;
+
+        // Serialize merges as list of ((left_id, right_id), merged_id) tuples
+        let merges_list: Vec<((u32, u32), u32)> = self
+            .merges
+            .iter()
+            .map(|(&(l, r), &m)| ((l, r), m))
+            .collect();
+        state.set_item("merges", merges_list)?;
+
+        // Version for future compatibility
+        state.set_item("version", 1u32)?;
+
+        // Return (cls, args, state) - pickle will call cls(*args).__setstate__(state)
+        // Use empty tuple for args since SmilesTokenizer::new() takes no arguments
+        let args = PyTuple::empty(py);
+        Ok((cls, args, state))
+    }
+
+    /// Pickle support: restore state from serialization
+    pub fn __setstate__(&mut self, state: Bound<'_, PyDict>) -> PyResult<()> {
+        // Check version
+        let version: u32 = state
+            .get_item("version")?
+            .ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err("Missing 'version' in pickle state")
+            })?
+            .extract()?;
+
+        if version != 1 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Unsupported pickle version: {}. Expected version 1.",
+                version
+            )));
+        }
+
+        // Restore id_to_atom
+        let id_to_atom_list: Vec<String> = state
+            .get_item("id_to_atom")?
+            .ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err("Missing 'id_to_atom' in pickle state")
+            })?
+            .extract()?;
+
+        self.id_to_atom.clear();
+        self.atom_to_id.clear();
+
+        for (id, atom) in id_to_atom_list.into_iter().enumerate() {
+            let compact_atom = CompactString::from(atom);
+            self.atom_to_id.insert(compact_atom.clone(), id as u32);
+            self.id_to_atom.push(compact_atom);
+        }
+
+        // Restore merges
+        let merges_list: Vec<((u32, u32), u32)> = state
+            .get_item("merges")?
+            .ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err("Missing 'merges' in pickle state")
+            })?
+            .extract()?;
+
+        self.merges.clear();
+        for ((left_id, right_id), merged_id) in merges_list {
+            self.merges.insert((left_id, right_id), merged_id);
+        }
+
+        // Recreate compiled pattern (always the same constant pattern)
+        self.compiled_pattern = Regex::new(SMILES_ATOM_PATTERN).expect("Invalid SMILES pattern");
+
+        Ok(())
     }
 }
 

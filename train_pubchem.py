@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Train rustmolbpe tokenizer on PubChem SMILES data."""
+"""Train rustmolbpe tokenizer on PubChem canonical SMILES data.
+
+This script expects preprocessed canonical SMILES (one per line).
+Run preprocess_pubchem.py first to convert raw PubChem data to canonical form.
+"""
 
 import gzip
 import time
@@ -16,9 +20,13 @@ logger = logging.getLogger(__name__)
 
 
 def smiles_generator(filepath, limit=None):
-    """Generate SMILES strings from PubChem CID-SMILES file.
+    """Generate SMILES strings from preprocessed canonical SMILES file.
 
-    Format: CID<tab>SMILES (one per line)
+    Format: One canonical SMILES per line (no CID, no header)
+
+    Args:
+        filepath: Path to canonical SMILES file (can be .gz)
+        limit: Maximum number of SMILES to yield
     """
     count = 0
     open_func = gzip.open if filepath.endswith('.gz') else open
@@ -28,29 +36,33 @@ def smiles_generator(filepath, limit=None):
         for line in f:
             if limit and count >= limit:
                 break
-            parts = line.strip().split('\t')
-            if len(parts) >= 2 and parts[1]:
-                yield parts[1]
+            smiles = line.strip()
+            if smiles:
+                yield smiles
                 count += 1
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Train tokenizer on PubChem data')
+    parser = argparse.ArgumentParser(description='Train tokenizer on PubChem canonical SMILES')
     parser.add_argument('--limit', type=int, default=10_000_000,
                         help='Number of SMILES to use for training (default: 10M)')
-    parser.add_argument('--vocab-size', type=int, default=8000,
-                        help='Target vocabulary size (default: 8000)')
-    parser.add_argument('--min-frequency', type=int, default=100,
-                        help='Minimum frequency for BPE merges (default: 100)')
+    parser.add_argument('--vocab-size', type=int, default=4096,
+                        help='Target vocabulary size (default: 4096)')
+    parser.add_argument('--min-frequency', type=int, default=1,
+                        help='Minimum frequency for BPE merges (default: 1)')
     parser.add_argument('--buffer-size', type=int, default=32768,
                         help='Buffer size for streaming (default: 32768)')
+    parser.add_argument('--data-file', type=str, default='data/pubchem_canonical_smiles.gz',
+                        help='Path to canonical SMILES file (default: data/pubchem_canonical_smiles.gz)')
+    parser.add_argument('--output', type=str, default=None,
+                        help='Output vocabulary file (default: data/pubchem_<limit>M_vocab.txt)')
     args = parser.parse_args()
 
-    data_file = "data/pubchem_smiles.gz"
-    vocab_file = f"data/pubchem_{args.limit//1_000_000}M_vocab.txt"
+    data_file = args.data_file
+    vocab_file = args.output if args.output else f"data/pubchem_{args.limit//1_000_000}M_vocab.txt"
 
     logger.info("=" * 60)
-    logger.info("Training rustmolbpe tokenizer on PubChem")
+    logger.info("Training rustmolbpe tokenizer on PubChem canonical SMILES")
     logger.info("=" * 60)
     logger.info(f"Data file: {data_file}")
     logger.info(f"Training limit: {args.limit:,} SMILES")

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Train rustmolbpe tokenizer on ChEMBL 36 SMILES data."""
 
+import argparse
 import time
 import logging
 import rustmolbpe
@@ -11,6 +12,38 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def parse_args():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Train rustmolbpe tokenizer on ChEMBL 36 SMILES data."
+    )
+    parser.add_argument(
+        "--vocab-size",
+        type=int,
+        default=4096,
+        help="Target vocabulary size (default: 4096)"
+    )
+    parser.add_argument(
+        "--min-frequency",
+        type=int,
+        default=1,
+        help="Minimum frequency for merges (default: 1)"
+    )
+    parser.add_argument(
+        "--data-file",
+        type=str,
+        default="data/chembl_36_chemreps.txt",
+        help="Path to ChEMBL chemreps file (default: data/chembl_36_chemreps.txt)"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="data/chembl36_vocab.txt",
+        help="Output vocabulary file (default: data/chembl36_vocab.txt)"
+    )
+    return parser.parse_args()
 
 
 def smiles_generator(filepath):
@@ -25,15 +58,20 @@ def smiles_generator(filepath):
 
 
 def main():
-    data_file = "data/chembl_36_chemreps.txt"
-    vocab_file = "data/chembl36_vocab.txt"
-    vocab_size = 8000  # Target vocabulary size
+    args = parse_args()
+
+    data_file = args.data_file
+    vocab_file = args.output
+    vocab_size = args.vocab_size
+    min_frequency = args.min_frequency
 
     logger.info("=" * 60)
     logger.info("Training rustmolbpe tokenizer on ChEMBL 36")
     logger.info("=" * 60)
     logger.info(f"Data file: {data_file}")
     logger.info(f"Target vocab size: {vocab_size}")
+    logger.info(f"Min frequency: {min_frequency}")
+    logger.info(f"Output file: {vocab_file}")
 
     # Count total SMILES first
     logger.info("Counting SMILES...")
@@ -51,7 +89,7 @@ def main():
         smiles_generator(data_file),
         vocab_size=vocab_size,
         buffer_size=16384,
-        min_frequency=1  # Use all SMILES since most are unique in ChEMBL
+        min_frequency=min_frequency
     )
 
     train_time = time.time() - start_time

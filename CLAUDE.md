@@ -63,13 +63,13 @@ The codebase is organized into focused modules:
 src/
 ├── lib.rs              # PyO3 module + SmilesTokenizer struct + re-exports (~730 lines)
 ├── constants.rs        # SMILES pattern, special tokens, type aliases (~30 lines)
-├── word.rs             # Word, MergeJob structs for training internals (~150 lines)
-├── training.rs         # BPE training algorithm (~120 lines)
-├── encoding.rs         # encode/decode methods (~180 lines)
-├── vocabulary.rs       # load/save vocabulary, query methods (~220 lines)
-├── padding.rs          # pad, encode_batch_padded (~120 lines)
-├── serialization.rs    # __reduce__, __setstate__ pickle support (~180 lines)
-└── utils.rs            # atomwise_tokenize helper (~130 lines)
+├── word.rs             # Word, MergeJob structs for training internals (~175 lines)
+├── training.rs         # BPE training algorithm (~130 lines)
+├── encoding.rs         # encode/decode methods (~230 lines)
+├── vocabulary.rs       # load/save vocabulary, query methods (~280 lines)
+├── padding.rs          # pad, encode_batch_padded (~175 lines)
+├── serialization.rs    # __reduce__, __setstate__ pickle support (~170 lines)
+└── utils.rs            # atomwise_tokenize helper (~145 lines)
 ```
 
 ### Core Components
@@ -81,27 +81,9 @@ src/
 - **Vocabulary I/O** (`vocabulary.rs`): SMILESPE-compatible format loading/saving
 - **Serialization** (`serialization.rs`): Full pickle support for multiprocessing
 
-Key data structures (in `lib.rs`):
-```rust
-pub struct SmilesTokenizer {
-    merges: HashMap<(u32, u32), u32>,      // Pair -> merged ID
-    atom_to_id: AHashMap<CompactString, u32>,  // Atom string -> ID
-    id_to_atom: Vec<CompactString>,         // ID -> atom string
-    compiled_pattern: Regex,                 // SMILES tokenization regex
-}
-```
-
 ### Python Bindings
 
-PyO3 exposes `SmilesTokenizer` class and `atomwise_tokenize()` function. Type stubs in `rustmolbpe.pyi` for IDE support. The package includes `py.typed` marker for PEP 561 compliance.
-
-Key Python API methods:
-- `train_from_iterator()`, `load_vocabulary()`, `save_vocabulary()` - Training and I/O
-- `encode()`, `decode()`, `batch_encode()`, `batch_decode()` - Tokenization
-- `pad()`, `encode_batch_padded()` - Batch padding with attention masks
-- `is_trained()` - Check if tokenizer has vocabulary loaded
-- `get_merges()` - Get merge rules as `(left, right, merged)` tuples
-- Pickle support via `__reduce__`/`__setstate__` for serialization and multiprocessing
+PyO3 exposes `SmilesTokenizer` class and `atomwise_tokenize()` function. Type stubs in `rustmolbpe.pyi` for IDE support. The package includes `py.typed` marker for PEP 561 compliance. See the `.pyi` file for the full API surface.
 
 ### Pre-trained Vocabularies
 
@@ -118,7 +100,7 @@ Example: `c c` means merge `c` + `c` into `cc`.
 
 ## CI/CD
 
-- GitHub Actions runs tests on Python 3.9-3.12
+- GitHub Actions runs tests on Python 3.9-3.13
 - Linting with `cargo fmt --check` and `cargo clippy`
 - Code coverage with Codecov (Rust via cargo-tarpaulin, Python via pytest-cov)
 - PyPI publishing workflow on release (`publish.yml`)
@@ -150,3 +132,17 @@ Common CI issues:
   maturin develop --release
   ```
 - Coverage job uses cargo-tarpaulin for Rust and pytest-cov for Python
+
+## Utility Scripts
+
+- `train_chembl.py` - Train vocabulary on ChEMBL 36 dataset
+- `train_pubchem.py` - Train vocabulary on PubChem 10M dataset
+- `preprocess_pubchem.py` - Preprocess raw PubChem data for training
+- `benchmark.py` - Performance benchmarking
+
+## Gotchas
+
+- After any Rust code change, you must re-run `maturin develop` before Python tests will reflect the change
+- The encoding algorithm is **greedy longest-match**, not standard merge-order BPE — this is intentional for better compression
+- Special token IDs 0-3 (PAD, UNK, BOS, EOS) are hardcoded in `constants.rs` and must not be reassigned
+- `gh_cli` (not `gh`) must be used to interact with GitHub Actions in this environment

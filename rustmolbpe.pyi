@@ -262,6 +262,42 @@ class SmilesTokenizer:
         """
         ...
 
+    def __call__(
+        self,
+        text: str | List[str],
+        padding: bool = False,
+        truncation: bool = False,
+        max_length: Optional[int] = None,
+        add_special_tokens: bool = False,
+        return_attention_mask: bool = True,
+    ) -> Dict[str, Any]:
+        """Encode SMILES string(s), like HuggingFace tokenizers.
+
+        Accepts a single SMILES string or a list of SMILES strings.
+        Returns a dict with 'input_ids' and optionally 'attention_mask'.
+
+        For a single string input, values are flat lists.
+        For a list input, values are nested lists.
+
+        Args:
+            text: A SMILES string or list of SMILES strings
+            padding: If True, pad sequences to equal length (right padding)
+            truncation: If True, truncate sequences to max_length
+            max_length: Maximum sequence length for padding/truncation
+            add_special_tokens: If True, add BOS/EOS tokens
+            return_attention_mask: If True, include attention_mask in result
+
+        Returns:
+            Dict with "input_ids" and optionally "attention_mask"
+
+        Examples:
+            >>> tokenizer("CCO")
+            {'input_ids': [4, 4, 5], 'attention_mask': [1, 1, 1]}
+            >>> tokenizer(["CCO", "C"], padding=True)
+            {'input_ids': [[4, 4, 5], [4, 0, 0]], 'attention_mask': [[1, 1, 1], [1, 0, 0]]}
+        """
+        ...
+
     def __reduce__(self) -> Tuple[type, Tuple[()], Dict[str, Any]]:
         """Pickle support: returns (cls, args, state) for serialization."""
         ...

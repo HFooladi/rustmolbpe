@@ -598,6 +598,98 @@ class TestPickleSupport:
         assert results == expected
 
 
+class TestCallableInterface:
+    """Tests for __call__ (HuggingFace-compatible) interface."""
+
+    def test_single_string(self, trained_tokenizer):
+        """Single string returns flat lists."""
+        result = trained_tokenizer("CCO")
+        assert isinstance(result["input_ids"], list)
+        assert all(isinstance(x, int) for x in result["input_ids"])
+        assert result["input_ids"] == trained_tokenizer.encode("CCO")
+
+    def test_single_string_attention_mask(self, trained_tokenizer):
+        """Single string returns attention mask of all 1s."""
+        result = trained_tokenizer("CCO")
+        assert result["attention_mask"] == [1] * len(result["input_ids"])
+
+    def test_list_of_strings(self, trained_tokenizer):
+        """List of strings returns nested lists."""
+        smiles_list = ["CCO", "CCC", "c1ccccc1"]
+        result = trained_tokenizer(smiles_list)
+        assert len(result["input_ids"]) == 3
+        for ids in result["input_ids"]:
+            assert isinstance(ids, list)
+
+    def test_list_matches_batch_encode(self, trained_tokenizer):
+        """List result should match batch_encode."""
+        smiles_list = ["CCO", "CCC"]
+        call_result = trained_tokenizer(smiles_list)
+        batch_result = trained_tokenizer.batch_encode(smiles_list)
+        assert call_result["input_ids"] == batch_result
+
+    def test_padding(self, trained_tokenizer):
+        """padding=True pads to equal length."""
+        result = trained_tokenizer(["CCO", "C"], padding=True)
+        lengths = [len(ids) for ids in result["input_ids"]]
+        assert len(set(lengths)) == 1  # all same length
+
+    def test_padding_attention_mask(self, trained_tokenizer):
+        """Padded positions have attention_mask=0."""
+        result = trained_tokenizer(["CCO", "C"], padding=True)
+        for ids, mask in zip(result["input_ids"], result["attention_mask"]):
+            for token_id, attention in zip(ids, mask):
+                if token_id == trained_tokenizer.pad_token_id:
+                    assert attention == 0
+                else:
+                    assert attention == 1
+
+    def test_truncation(self, trained_tokenizer):
+        """truncation=True with max_length truncates."""
+        result = trained_tokenizer("CCCCCCCCCC", truncation=True, max_length=3)
+        assert len(result["input_ids"]) == 3
+
+    def test_truncation_batch(self, trained_tokenizer):
+        """truncation works on batches."""
+        result = trained_tokenizer(
+            ["CCCCCCCCCC", "C"], truncation=True, max_length=3, padding=True
+        )
+        for ids in result["input_ids"]:
+            assert len(ids) == 3
+
+    def test_add_special_tokens(self, trained_tokenizer):
+        """add_special_tokens adds BOS/EOS."""
+        result = trained_tokenizer("CCO", add_special_tokens=True)
+        assert result["input_ids"][0] == trained_tokenizer.bos_token_id
+        assert result["input_ids"][-1] == trained_tokenizer.eos_token_id
+
+    def test_no_attention_mask(self, trained_tokenizer):
+        """return_attention_mask=False omits it."""
+        result = trained_tokenizer("CCO", return_attention_mask=False)
+        assert "input_ids" in result
+        assert "attention_mask" not in result
+
+    def test_single_with_padding_and_max_length(self, trained_tokenizer):
+        """Single string with padding and max_length."""
+        result = trained_tokenizer("C", padding=True, max_length=5)
+        assert len(result["input_ids"]) == 5
+
+    def test_empty_list(self, trained_tokenizer):
+        """Empty list input."""
+        result = trained_tokenizer([])
+        assert result["input_ids"] == []
+
+    def test_consistency_with_encode_batch_padded(self, trained_tokenizer):
+        """__call__ with padding should match encode_batch_padded."""
+        smiles_list = ["CCO", "CCC", "CCCC"]
+        call_result = trained_tokenizer(smiles_list, padding=True, add_special_tokens=True)
+        padded_result = trained_tokenizer.encode_batch_padded(
+            smiles_list, add_special_tokens=True
+        )
+        assert call_result["input_ids"] == padded_result["input_ids"]
+        assert call_result["attention_mask"] == padded_result["attention_mask"]
+
+
 class TestErrorHandlingEdgeCases:
     """Tests for error handling and edge cases."""
 

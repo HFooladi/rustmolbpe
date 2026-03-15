@@ -486,6 +486,95 @@ impl SmilesTokenizer {
             .map_err(pyo3::exceptions::PyValueError::new_err)
     }
 
+    /// Make the tokenizer callable like HuggingFace tokenizers.
+    ///
+    /// Accepts a single SMILES string or a list of SMILES strings.
+    /// Returns a dict with 'input_ids' and optionally 'attention_mask'.
+    ///
+    /// For a single string, values are flat lists (e.g., [4, 4, 5]).
+    /// For a list of strings, values are nested lists (e.g., [[4, 4, 5], [4, 5]]).
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (text, padding=false, truncation=false, max_length=None, add_special_tokens=false, return_attention_mask=true))]
+    pub fn __call__<'py>(
+        &self,
+        py: Python<'py>,
+        text: &pyo3::Bound<'py, pyo3::PyAny>,
+        padding: bool,
+        truncation: bool,
+        max_length: Option<usize>,
+        add_special_tokens: bool,
+        return_attention_mask: bool,
+    ) -> PyResult<Py<PyDict>> {
+        // Determine if input is a single string or a list
+        let is_single = text.extract::<String>().is_ok();
+
+        let smiles_list: Vec<String> = if is_single {
+            vec![text.extract::<String>()?]
+        } else {
+            text.extract::<Vec<String>>()?
+        };
+
+        // Encode all SMILES
+        let mut sequences = encoding::batch_encode(
+            py,
+            &smiles_list,
+            add_special_tokens,
+            &self.compiled_pattern,
+            &self.atom_to_id,
+            self.bos_token_id(),
+            self.eos_token_id(),
+            self.unk_token_id(),
+        );
+
+        // Apply truncation if needed (when not padding, pad() won't be called)
+        if truncation {
+            if let Some(max_len) = max_length {
+                for seq in &mut sequences {
+                    seq.truncate(max_len);
+                }
+            }
+        }
+
+        let dict = PyDict::new(py);
+
+        if padding {
+            let padded = padding::pad(
+                sequences,
+                max_length,
+                "right",
+                truncation,
+                return_attention_mask,
+                self.pad_token_id(),
+            );
+
+            if is_single {
+                dict.set_item("input_ids", &padded["input_ids"][0])?;
+                if let Some(mask) = padded.get("attention_mask") {
+                    dict.set_item("attention_mask", &mask[0])?;
+                }
+            } else {
+                dict.set_item("input_ids", &padded["input_ids"])?;
+                if let Some(mask) = padded.get("attention_mask") {
+                    dict.set_item("attention_mask", mask)?;
+                }
+            }
+        } else if is_single {
+            dict.set_item("input_ids", &sequences[0])?;
+            if return_attention_mask {
+                let mask: Vec<u32> = vec![1; sequences[0].len()];
+                dict.set_item("attention_mask", mask)?;
+            }
+        } else {
+            dict.set_item("input_ids", &sequences)?;
+            if return_attention_mask {
+                let masks: Vec<Vec<u32>> = sequences.iter().map(|s| vec![1u32; s.len()]).collect();
+                dict.set_item("attention_mask", masks)?;
+            }
+        }
+
+        Ok(dict.into())
+    }
+
     /// Pickle support: return (cls, args, state) for serialization
     pub fn __reduce__<'py>(
         &self,

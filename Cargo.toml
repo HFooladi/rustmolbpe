@@ -35,3 +35,4 @@ extension-module = ["pyo3/extension-module"]
 [profile.release]
 lto = true          # Link-time optimization
 codegen-units = 1   # Better optimization, slower compile
+strip = true        # Strip debug symbols from release binary

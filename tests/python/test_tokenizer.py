@@ -798,3 +798,259 @@ class TestErrorHandlingEdgeCases:
         assert len(vocab) == trained_tokenizer.vocab_size
         assert trained_tokenizer.base_vocab_size <= trained_tokenizer.vocab_size
         assert trained_tokenizer.vocab_size == trained_tokenizer.base_vocab_size + trained_tokenizer.num_merges
+
+
+# ============================================================================
+# Tests for the four-tokenizer ladder: CharTokenizer, AtomTokenizer,
+# CharBPETokenizer, and SmilesTokenizer (atom-level BPE / SPE).
+# ============================================================================
+
+# Sample SMILES used to train/build vocabularies in the tests below.
+_LADDER_SMILES = [
+    "CCO",  # ethanol
+    "CCC",  # propane
+    "CCCC",  # butane
+    "c1ccccc1",  # benzene
+    "CC(=O)O",  # acetic acid
+    "CC(=O)Oc1ccccc1C(=O)O",  # aspirin
+    "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",  # caffeine
+    "CCBr",  # bromoethane
+    "CCCl",  # chloroethane
+    "C[C@@H](O)CCN",  # a stereocenter, exercises bracket atoms
+] * 100
+
+# Round-trip molecules (encode -> decode must reproduce the input exactly).
+_ROUNDTRIP_SMILES = [
+    "CCO",
+    "c1ccccc1",
+    "CC(=O)Oc1ccccc1C(=O)O",
+    "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+]
+
+
+def _all_tokenizer_classes():
+    import rustmolbpe
+    return [
+        rustmolbpe.CharTokenizer,
+        rustmolbpe.AtomTokenizer,
+        rustmolbpe.CharBPETokenizer,
+        rustmolbpe.SmilesTokenizer,
+    ]
+
+
+class TestCharTokenizer:
+    """Tests for the character-level tokenizer."""
+
+    @pytest.fixture
+    def char_tok(self):
+        import rustmolbpe
+        tok = rustmolbpe.CharTokenizer()
+        tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=0)
+        return tok
+
+    def test_splits_into_individual_characters(self, char_tok):
+        """'Cl' is two characters for a character-level tokenizer."""
+        ids = char_tok.encode("Cl")
+        assert len(ids) == 2
+        assert char_tok.decode(ids) == "Cl"
+
+    def test_bracket_atom_split_per_character(self, char_tok):
+        """'[C@@H]' is six characters, not one atom."""
+        ids = char_tok.encode("[C@@H]")
+        assert len(ids) == 6
+
+    def test_never_has_merges(self, char_tok):
+        assert char_tok.num_merges == 0
+        assert char_tok.is_trained() is False
+
+    def test_has_vocabulary_after_training(self, char_tok):
+        import rustmolbpe
+        fresh = rustmolbpe.CharTokenizer()
+        assert fresh.has_vocabulary() is False
+        assert char_tok.has_vocabulary() is True
+
+    def test_roundtrip(self, char_tok):
+        for smi in _ROUNDTRIP_SMILES:
+            assert char_tok.decode(char_tok.encode(smi)) == smi
+
+    def test_special_token_ids(self, char_tok):
+        assert char_tok.pad_token_id == 0
+        assert char_tok.unk_token_id == 1
+        assert char_tok.bos_token_id == 2
+        assert char_tok.eos_token_id == 3
+
+    def test_add_special_tokens(self, char_tok):
+        ids = char_tok.encode("CCO", add_special_tokens=True)
+        assert ids[0] == char_tok.bos_token_id
+        assert ids[-1] == char_tok.eos_token_id
+
+    def test_empty_string(self, char_tok):
+        assert char_tok.encode("") == []
+
+    def test_vocab_io_not_supported(self, char_tok):
+        with pytest.raises(NotImplementedError):
+            char_tok.save_vocabulary("/tmp/_should_not_exist.txt")
+        with pytest.raises(NotImplementedError):
+            char_tok.load_vocabulary("/tmp/_should_not_exist.txt")
+
+
+class TestAtomTokenizer:
+    """Tests for the atom-level (no-merge) tokenizer."""
+
+    @pytest.fixture
+    def atom_tok(self):
+        import rustmolbpe
+        tok = rustmolbpe.AtomTokenizer()
+        tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=0)
+        return tok
+
+    def test_groups_multichar_atoms(self, atom_tok):
+        """'CCl' is two tokens: 'C' and the chlorine atom 'Cl'."""
+        ids = atom_tok.encode("CCl")
+        assert len(ids) == 2
+        assert atom_tok.id_to_token(ids[1]) == "Cl"
+
+    def test_bracket_atom_is_one_token(self, atom_tok):
+        ids = atom_tok.encode("[C@@H]")
+        assert len(ids) == 1
+        assert atom_tok.id_to_token(ids[0]) == "[C@@H]"
+
+    def test_never_has_merges(self, atom_tok):
+        assert atom_tok.num_merges == 0
+        assert atom_tok.is_trained() is False
+
+    def test_roundtrip(self, atom_tok):
+        for smi in _ROUNDTRIP_SMILES:
+            assert atom_tok.decode(atom_tok.encode(smi)) == smi
+
+    def test_matches_atomwise_tokenize_length(self, atom_tok):
+        """Token count equals the atomwise_tokenize unit count."""
+        import rustmolbpe
+        for smi in _ROUNDTRIP_SMILES:
+            assert len(atom_tok.encode(smi)) == len(rustmolbpe.atomwise_tokenize(smi))
+
+    def test_atom_count_at_most_char_count(self, atom_tok):
+        """Atom-level never produces more tokens than character-level."""
+        import rustmolbpe
+        char_tok = rustmolbpe.CharTokenizer()
+        for smi in _ROUNDTRIP_SMILES:
+            assert len(atom_tok.encode(smi)) <= len(smi)
+
+    def test_vocab_io_not_supported(self, atom_tok):
+        with pytest.raises(NotImplementedError):
+            atom_tok.save_vocabulary("/tmp/_should_not_exist.txt")
+
+
+class TestCharBPETokenizer:
+    """Tests for the character-level BPE tokenizer."""
+
+    @pytest.fixture
+    def char_bpe(self):
+        import rustmolbpe
+        tok = rustmolbpe.CharBPETokenizer()
+        tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=80)
+        return tok
+
+    def test_learns_merges(self, char_bpe):
+        assert char_bpe.num_merges > 0
+        assert char_bpe.is_trained() is True
+
+    def test_merges_are_concatenations(self, char_bpe):
+        """Each merge's merged token equals left + right concatenated."""
+        for left, right, merged in char_bpe.get_merges():
+            assert merged == left + right
+
+    def test_roundtrip(self, char_bpe):
+        for smi in _ROUNDTRIP_SMILES:
+            assert char_bpe.decode(char_bpe.encode(smi)) == smi
+
+    def test_compresses_vs_character_level(self, char_bpe):
+        """BPE encoding is never longer than raw character splitting."""
+        import rustmolbpe
+        char_tok = rustmolbpe.CharTokenizer()
+        char_tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=0)
+        for smi in _ROUNDTRIP_SMILES:
+            assert len(char_bpe.encode(smi)) <= len(char_tok.encode(smi))
+
+    def test_no_vocab_token_contains_whitespace(self, char_bpe):
+        """SMILESPE vocab format is space-separated; tokens must be space-free."""
+        for token, _id in char_bpe.get_vocabulary():
+            assert " " not in token
+
+    def test_vocab_save_load_roundtrip(self, char_bpe):
+        import rustmolbpe
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            path = f.name
+        try:
+            char_bpe.save_vocabulary(path)
+            reloaded = rustmolbpe.CharBPETokenizer()
+            reloaded.load_vocabulary(path)
+            # The SMILESPE format stores only merge rules (as strings), so
+            # token IDs may be reassigned on load; the produced token *strings*
+            # and the decoded SMILES must still match.
+            for smi in _ROUNDTRIP_SMILES:
+                original = [char_bpe.id_to_token(i) for i in char_bpe.encode(smi)]
+                loaded = [reloaded.id_to_token(i) for i in reloaded.encode(smi)]
+                assert loaded == original
+                assert reloaded.decode(reloaded.encode(smi)) == smi
+        finally:
+            os.unlink(path)
+
+
+class TestTokenizerLadderCommon:
+    """Cross-cutting tests parametrized over all four tokenizer classes."""
+
+    @pytest.mark.parametrize("cls", _all_tokenizer_classes())
+    def test_fresh_state(self, cls):
+        tok = cls()
+        assert tok.vocab_size == 4  # special tokens only
+        assert tok.num_merges == 0
+        assert tok.pad_token == "<pad>"
+        assert tok.unk_token == "<unk>"
+        assert tok.bos_token == "<bos>"
+        assert tok.eos_token == "<eos>"
+
+    @pytest.mark.parametrize("cls", _all_tokenizer_classes())
+    def test_callable_single_and_batch(self, cls):
+        tok = cls()
+        tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=80)
+
+        single = tok("CCO")
+        assert isinstance(single["input_ids"], list)
+        assert not isinstance(single["input_ids"][0], list)
+
+        batch = tok(["CCO", "c1ccccc1"])
+        assert len(batch["input_ids"]) == 2
+        assert isinstance(batch["input_ids"][0], list)
+
+    @pytest.mark.parametrize("cls", _all_tokenizer_classes())
+    def test_padding_parity(self, cls):
+        tok = cls()
+        tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=80)
+
+        seqs = ["CCO", "c1ccccc1", "CC(=O)O"]
+        via_encode_pad = tok.encode_batch_padded(seqs, padding="right")
+        via_two_steps = tok.pad(tok.batch_encode(seqs), padding="right")
+        assert via_encode_pad["input_ids"] == via_two_steps["input_ids"]
+
+    @pytest.mark.parametrize("cls", _all_tokenizer_classes())
+    def test_pickle_roundtrip(self, cls):
+        import pickle
+        tok = cls()
+        tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=80)
+
+        restored = pickle.loads(pickle.dumps(tok))
+        for smi in _ROUNDTRIP_SMILES:
+            assert restored.encode(smi) == tok.encode(smi)
+        assert restored.get_vocabulary() == tok.get_vocabulary()
+
+    def test_pickle_cross_class_rejected(self):
+        """A pickle from one granularity must not load into the other."""
+        import rustmolbpe
+        char_tok = rustmolbpe.CharTokenizer()
+        char_tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=0)
+        _cls, _args, state = char_tok.__reduce__()
+
+        atom_tok = rustmolbpe.AtomTokenizer()
+        with pytest.raises(Exception):
+            atom_tok.__setstate__(state)

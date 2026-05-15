@@ -2,11 +2,10 @@
 
 use ahash::AHashMap;
 use compact_str::CompactString;
-use fancy_regex::Regex;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-use crate::utils::atomwise_tokenize;
+use crate::pretokenizer::PreTokenizer;
 
 /// Encode a SMILES string into token IDs using greedy longest-match.
 ///
@@ -15,14 +14,14 @@ use crate::utils::atomwise_tokenize;
 pub(crate) fn encode(
     smiles: &str,
     add_special_tokens: bool,
-    compiled_pattern: &Regex,
+    pretokenizer: &PreTokenizer,
     atom_to_id: &AHashMap<CompactString, u32>,
     bos_token_id: u32,
     eos_token_id: u32,
     unk_token_id: u32,
 ) -> Vec<u32> {
-    // Step 1: Atomwise tokenization
-    let atoms = atomwise_tokenize(smiles, compiled_pattern);
+    // Step 1: Pre-tokenization (atom-level or character-level)
+    let atoms = pretokenizer.split(smiles);
 
     if atoms.is_empty() {
         if add_special_tokens {
@@ -99,7 +98,7 @@ pub(crate) fn batch_encode(
     py: Python<'_>,
     smiles_list: &[String],
     add_special_tokens: bool,
-    compiled_pattern: &Regex,
+    pretokenizer: &PreTokenizer,
     atom_to_id: &AHashMap<CompactString, u32>,
     bos_token_id: u32,
     eos_token_id: u32,
@@ -112,7 +111,7 @@ pub(crate) fn batch_encode(
                 encode(
                     smi,
                     add_special_tokens,
-                    compiled_pattern,
+                    pretokenizer,
                     atom_to_id,
                     bos_token_id,
                     eos_token_id,
@@ -140,10 +139,10 @@ pub(crate) fn batch_decode(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::SMILES_ATOM_PATTERN;
+    use crate::pretokenizer::PreTokenizerKind;
 
     fn setup_tokenizer() -> (
-        Regex,
+        PreTokenizer,
         AHashMap<CompactString, u32>,
         Vec<CompactString>,
         u32,
@@ -151,7 +150,7 @@ mod tests {
         u32,
         u32,
     ) {
-        let compiled_pattern = Regex::new(SMILES_ATOM_PATTERN).unwrap();
+        let pretokenizer = PreTokenizer::new(PreTokenizerKind::Atom);
         let mut atom_to_id = AHashMap::new();
         let mut id_to_atom = Vec::new();
 
@@ -171,7 +170,31 @@ mod tests {
         id_to_atom.push(CompactString::from("O"));
         atom_to_id.insert(CompactString::from("O"), 5);
 
-        (compiled_pattern, atom_to_id, id_to_atom, 0, 1, 2, 3)
+        (pretokenizer, atom_to_id, id_to_atom, 0, 1, 2, 3)
+    }
+
+    /// Build a character-level tokenizer state with single-character atoms.
+    fn setup_char_tokenizer() -> (
+        PreTokenizer,
+        AHashMap<CompactString, u32>,
+        Vec<CompactString>,
+        u32,
+        u32,
+        u32,
+    ) {
+        let pretokenizer = PreTokenizer::new(PreTokenizerKind::Char);
+        let mut atom_to_id = AHashMap::new();
+        let mut id_to_atom = Vec::new();
+
+        for (id, tok) in ["<pad>", "<unk>", "<bos>", "<eos>", "C", "l", "O"]
+            .iter()
+            .enumerate()
+        {
+            id_to_atom.push(CompactString::from(*tok));
+            atom_to_id.insert(CompactString::from(*tok), id as u32);
+        }
+
+        (pretokenizer, atom_to_id, id_to_atom, 1, 2, 3)
     }
 
     #[test]
@@ -214,6 +237,27 @@ mod tests {
 
         let ids = encode("CO", true, &pattern, &atom_to_id, bos, eos, unk);
         assert_eq!(ids, vec![2, 4, 5, 3]); // BOS, C, O, EOS
+    }
+
+    #[test]
+    fn test_char_level_encode_splits_every_character() {
+        let (pt, atom_to_id, id_to_atom, unk, bos, eos) = setup_char_tokenizer();
+
+        // "Cl" must encode as two separate character tokens "C" and "l".
+        let ids = encode("Cl", false, &pt, &atom_to_id, bos, eos, unk);
+        assert_eq!(ids, vec![4, 5]); // C=4, l=5
+
+        let decoded = decode(&ids, &id_to_atom).unwrap();
+        assert_eq!(decoded, "Cl");
+    }
+
+    #[test]
+    fn test_char_level_encode_roundtrip() {
+        let (pt, atom_to_id, id_to_atom, unk, bos, eos) = setup_char_tokenizer();
+
+        let ids = encode("ClO", false, &pt, &atom_to_id, bos, eos, unk);
+        assert_eq!(ids, vec![4, 5, 6]); // C, l, O
+        assert_eq!(decode(&ids, &id_to_atom).unwrap(), "ClO");
     }
 
     #[test]

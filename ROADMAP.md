@@ -71,7 +71,8 @@ Feature enhancements that improve performance, flexibility, and integration capa
 - [ ] 🟡 Vocabulary merging utility (combine two vocabularies)
 
 ### Tokenizer Serialization (v0.5.0)
-- [ ] 🟡 JSON export/import for tokenizer state
+- [x] 🟡 JSON export/import for tokenizer state — `save_huggingface` /
+  `from_huggingface` (HuggingFace `tokenizers` JSON format)
 - [ ] 🟡 Save/load configuration separately from vocabulary
 - [ ] 🟢 Version compatibility checking on load
 
@@ -104,7 +105,9 @@ Major features and stabilization for production readiness.
 - [ ] 🟢 API stability markers
 
 ### Extended Framework Support
-- [ ] 🟡 HuggingFace Tokenizers compatibility layer
+- [x] 🟡 HuggingFace Tokenizers compatibility layer — `save_huggingface` /
+  `from_huggingface` export to / import from `tokenizer.json` (atom-level BPE
+  excepted; see README)
 - [ ] 🟡 Integration guide for transformers library
 - [ ] 🔴 JAX/Flax tensor support
 

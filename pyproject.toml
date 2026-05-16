@@ -1,6 +1,6 @@
 [project]
 name = "rustmolbpe"
-version = "0.2.0"
+version = "0.3.0"
 description = "A BPE (Byte Pair Encoding) tokenizer for molecular SMILES written in Rust with Python bindings"
 readme = "README.md"
 license = { text = "MIT" }
@@ -29,6 +29,11 @@ dev = [
 stats = [
     "numpy>=1.21",
     "matplotlib>=3.5",
+]
+# Lets the test suite cross-check save_huggingface() output against the real
+# HuggingFace `tokenizers` library.
+hf = [
+    "tokenizers>=0.15",
 ]
 
 # Tells Python to use maturin as the build backend

@@ -1054,3 +1054,97 @@ class TestTokenizerLadderCommon:
         atom_tok = rustmolbpe.AtomTokenizer()
         with pytest.raises(Exception):
             atom_tok.__setstate__(state)
+
+
+# ============================================================================
+# HUGGINGFACE JSON INTEROP
+# ============================================================================
+
+# The three classes that can be expressed as a stock HuggingFace fast tokenizer.
+# SmilesTokenizer (atom-level BPE) is excluded by design.
+def _hf_exportable_classes():
+    import rustmolbpe
+    return [
+        rustmolbpe.CharTokenizer,
+        rustmolbpe.AtomTokenizer,
+        rustmolbpe.CharBPETokenizer,
+    ]
+
+
+class TestHuggingFace:
+    """Tests for save_huggingface / from_huggingface."""
+
+    @staticmethod
+    def _trained(cls):
+        tok = cls()
+        # vocab_size is ignored by the no-merge tokenizers and used by CharBPE.
+        tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=80)
+        return tok
+
+    @pytest.mark.parametrize("cls", _hf_exportable_classes())
+    def test_roundtrip(self, cls):
+        """Export to HuggingFace JSON and import back without loss."""
+        tok = self._trained(cls)
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "tokenizer.json")
+            tok.save_huggingface(path)
+            restored = cls.from_huggingface(path)
+
+        assert restored.get_vocabulary() == tok.get_vocabulary()
+        assert restored.get_merges() == tok.get_merges()
+        for smi in _ROUNDTRIP_SMILES:
+            assert restored.encode(smi) == tok.encode(smi)
+
+    def test_smiles_tokenizer_export_not_supported(self):
+        """Atom-level BPE cannot be a stock HuggingFace fast tokenizer."""
+        import rustmolbpe
+        tok = rustmolbpe.SmilesTokenizer()
+        tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=80)
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "tokenizer.json")
+            with pytest.raises(NotImplementedError):
+                tok.save_huggingface(path)
+
+    def test_cross_class_import_rejected(self):
+        """A file's granularity/merge profile must match the loading class."""
+        import rustmolbpe
+        with tempfile.TemporaryDirectory() as d:
+            # A character-level BPE file (has merges).
+            char_bpe = self._trained(rustmolbpe.CharBPETokenizer)
+            bpe_path = os.path.join(d, "char_bpe.json")
+            char_bpe.save_huggingface(bpe_path)
+
+            # ...rejected by every class except CharBPETokenizer.
+            with pytest.raises(ValueError):
+                rustmolbpe.CharTokenizer.from_huggingface(bpe_path)
+            with pytest.raises(ValueError):
+                rustmolbpe.AtomTokenizer.from_huggingface(bpe_path)
+            with pytest.raises(ValueError):
+                rustmolbpe.SmilesTokenizer.from_huggingface(bpe_path)
+
+            # An atom-level WordLevel file must not load into SmilesTokenizer.
+            atom = self._trained(rustmolbpe.AtomTokenizer)
+            atom_path = os.path.join(d, "atom.json")
+            atom.save_huggingface(atom_path)
+            with pytest.raises(ValueError):
+                rustmolbpe.SmilesTokenizer.from_huggingface(atom_path)
+
+    def test_invalid_file_rejected(self):
+        import rustmolbpe
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "bad.json")
+            with open(path, "w") as f:
+                f.write("not valid json")
+            with pytest.raises(ValueError):
+                rustmolbpe.CharBPETokenizer.from_huggingface(path)
+
+    @pytest.mark.parametrize("cls", _hf_exportable_classes())
+    def test_huggingface_library_loads(self, cls):
+        """The emitted file is loadable by the real `tokenizers` library."""
+        tokenizers = pytest.importorskip("tokenizers")
+        tok = self._trained(cls)
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "tokenizer.json")
+            tok.save_huggingface(path)
+            hf = tokenizers.Tokenizer.from_file(path)
+        assert hf.get_vocab_size() == tok.vocab_size

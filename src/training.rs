@@ -112,8 +112,7 @@ pub(crate) fn train_core_incremental(
         merges_done += 1;
 
         // Log progress every 1%
-        if num_merges > 0 {
-            let current_percent = (merges_done * 100) / num_merges;
+        if let Some(current_percent) = (merges_done * 100).checked_div(num_merges) {
             if current_percent > last_log_percent {
                 log::info!(
                     "Progress: {}% ({}/{} merges) - Last merge: {:?} -> {} (frequency: {})",

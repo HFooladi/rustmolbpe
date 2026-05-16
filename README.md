@@ -7,7 +7,8 @@ A high-performance BPE (Byte Pair Encoding) tokenizer for molecular SMILES writt
 
 ## Features
 
-- **SMILES-aware tokenization**: Uses atom-level pre-tokenization that correctly handles multi-character atoms (Br, Cl), bracket atoms ([C@@H], [N+]), ring closures, and stereochemistry
+- **Four tokenizers, one API**: from a plain character-level tokenizer up to atom-level BPE — pick the granularity you need and compare them directly
+- **SMILES-aware tokenization**: atom-level pre-tokenization correctly handles multi-character atoms (Br, Cl), bracket atoms ([C@@H], [N+]), ring closures, and stereochemistry
 - **Fast training**: Parallel processing with Rayon for efficient training on large molecular datasets
 - **Streaming support**: Train on datasets of any size with configurable buffer sizes
 - **SMILESPE compatibility**: Load and save vocabularies in SMILESPE format
@@ -82,6 +83,53 @@ all_ids = tokenizer.batch_encode(["CCO", "c1ccccc1", "CC(=O)O"])
 # Save/load vocabulary
 tokenizer.save_vocabulary("my_vocab.txt")
 tokenizer.load_vocabulary("my_vocab.txt")
+```
+
+## Tokenizers
+
+`rustmolbpe` provides four tokenizers spanning a ladder from simplest to most
+advanced. They share an identical API, so you can swap one for another and
+compare their behavior:
+
+| Class              | Granularity       | Learns merges | Description                                              |
+|--------------------|-------------------|---------------|----------------------------------------------------------|
+| `CharTokenizer`    | character         | no            | Splits a SMILES string into individual characters        |
+| `AtomTokenizer`    | atom (regex)      | no            | Splits into atoms/structural tokens (Br, Cl, [C@@H] kept whole) |
+| `CharBPETokenizer` | character         | yes           | BPE merges learned on top of character splitting         |
+| `SmilesTokenizer`  | atom (regex)      | yes           | BPE merges learned on top of atom splitting ("SPE")      |
+
+```python
+import rustmolbpe
+
+char = rustmolbpe.CharTokenizer()
+atom = rustmolbpe.AtomTokenizer()
+
+# Character-level: "Cl" is two tokens ('C', 'l')
+len(char.encode("CCl"))   # 3
+
+# Atom-level: chlorine "Cl" is a single token
+len(atom.encode("CCl"))   # 2
+
+# BPE tokenizers are trained to merge frequent units
+char_bpe = rustmolbpe.CharBPETokenizer()
+char_bpe.train_from_iterator(iter(smiles_data), vocab_size=1000)
+```
+
+`CharTokenizer` and `AtomTokenizer` have no merges: `train_from_iterator` only
+builds the base vocabulary (`vocab_size` is ignored), `num_merges` is always 0,
+and vocabulary file I/O is not supported. Use `has_vocabulary()` to check
+whether a base vocabulary has been built and `is_trained()` to check for merges.
+
+### Comparing tokenizers on ChEMBL
+
+`tokenizer_stats.py` runs every tokenizer over the ChEMBL 36 dataset and reports
+per-molecule token-count statistics (mean, median, std, percentiles) as a
+console table, a CSV, and a histogram figure:
+
+```bash
+pip install rustmolbpe[stats]          # numpy + matplotlib
+python tokenizer_stats.py              # full ChEMBL 36
+python tokenizer_stats.py --limit 100000   # quick sample
 ```
 
 ## Special Tokens

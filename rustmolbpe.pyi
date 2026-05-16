@@ -1,4 +1,4 @@
-"""Type stubs for rustmolbpe - High-performance BPE tokenizer for molecular SMILES."""
+"""Type stubs for rustmolbpe - High-performance tokenizers for molecular SMILES."""
 
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
@@ -21,23 +21,19 @@ def atomwise_tokenize(smiles: str) -> List[str]:
     """
     ...
 
-class SmilesTokenizer:
-    """BPE tokenizer for molecular SMILES strings.
+class _BaseTokenizer:
+    """Shared interface for all rustmolbpe tokenizers.
 
-    A high-performance tokenizer that uses atom-level pre-tokenization
-    followed by Byte Pair Encoding (BPE) for subword tokenization.
+    Not instantiated directly. The four concrete tokenizers
+    (:class:`CharTokenizer`, :class:`AtomTokenizer`, :class:`CharBPETokenizer`,
+    :class:`SmilesTokenizer`) all expose this identical API and differ only in
+    pre-tokenization granularity and whether they learn BPE merges.
 
     Special tokens are always at fixed IDs:
         - PAD: 0
         - UNK: 1
         - BOS: 2
         - EOS: 3
-
-    Examples:
-        >>> tokenizer = SmilesTokenizer()
-        >>> tokenizer.load_vocabulary("vocab.txt")
-        >>> ids = tokenizer.encode("CCO")
-        >>> smiles = tokenizer.decode(ids)
     """
 
     def __init__(self) -> None:
@@ -54,9 +50,14 @@ class SmilesTokenizer:
     ) -> None:
         """Train the tokenizer from a SMILES iterator.
 
+        For BPE tokenizers this builds the base vocabulary and then learns up to
+        ``vocab_size - base_vocab_size`` merges. For non-BPE tokenizers
+        (:class:`CharTokenizer`, :class:`AtomTokenizer`) it only builds the base
+        vocabulary and ``vocab_size`` is ignored.
+
         Args:
             iterator: Iterator yielding SMILES strings
-            vocab_size: Target vocabulary size (including special tokens and base atoms)
+            vocab_size: Target vocabulary size (including special tokens and base units)
             buffer_size: Number of SMILES to buffer for parallel processing
             min_frequency: Minimum frequency for a pair to be merged
         """
@@ -71,6 +72,7 @@ class SmilesTokenizer:
 
         Raises:
             IOError: If file cannot be read
+            NotImplementedError: For non-BPE tokenizers (CharTokenizer, AtomTokenizer)
         """
         ...
 
@@ -82,6 +84,7 @@ class SmilesTokenizer:
 
         Raises:
             IOError: If file cannot be written
+            NotImplementedError: For non-BPE tokenizers (CharTokenizer, AtomTokenizer)
         """
         ...
 
@@ -226,24 +229,35 @@ class SmilesTokenizer:
     # Properties
     @property
     def vocab_size(self) -> int:
-        """Total vocabulary size (special + base atoms + merges)."""
+        """Total vocabulary size (special + base units + merges)."""
         ...
 
     @property
     def base_vocab_size(self) -> int:
-        """Number of base atom tokens (excluding special tokens and merges)."""
+        """Number of base unit tokens (excluding special tokens and merges)."""
         ...
 
     @property
     def num_merges(self) -> int:
-        """Number of learned merge operations."""
+        """Number of learned merge operations (always 0 for non-BPE tokenizers)."""
         ...
 
     def is_trained(self) -> bool:
-        """Check if the tokenizer has been trained or has a vocabulary loaded.
+        """Check whether the tokenizer has learned BPE merges.
+
+        Always False for non-BPE tokenizers (CharTokenizer, AtomTokenizer) even
+        after a vocabulary pass; use :meth:`has_vocabulary` for those.
 
         Returns:
             True if the tokenizer has merge rules (trained or loaded), False otherwise.
+        """
+        ...
+
+    def has_vocabulary(self) -> bool:
+        """Check whether a base vocabulary has been built.
+
+        Returns:
+            True if the vocabulary contains tokens beyond the 4 special tokens.
         """
         ...
 
@@ -255,7 +269,8 @@ class SmilesTokenizer:
         - right: The right token string in the merge rule
         - merged: The resulting merged token string
 
-        Merges are returned in order of learning priority.
+        Merges are returned in order of learning priority. Empty for non-BPE
+        tokenizers.
 
         Returns:
             List of (left, right, merged) string tuples.
@@ -303,7 +318,11 @@ class SmilesTokenizer:
         ...
 
     def __setstate__(self, state: Dict[str, Any]) -> None:
-        """Restore the tokenizer state from pickle serialization."""
+        """Restore the tokenizer state from pickle serialization.
+
+        Raises:
+            ValueError: If the pickled granularity does not match this class.
+        """
         ...
 
     @property
@@ -345,3 +364,51 @@ class SmilesTokenizer:
     def eos_token(self) -> str:
         """EOS token string ('<eos>')."""
         ...
+
+class CharTokenizer(_BaseTokenizer):
+    """Character-level SMILES tokenizer.
+
+    Splits a SMILES string into individual Unicode characters with no BPE
+    merges. ``vocab_size`` passed to :meth:`train_from_iterator` is ignored and
+    ``num_merges`` is always 0. Vocabulary file I/O is not supported (the
+    SMILESPE format only stores merge rules).
+
+    Examples:
+        >>> tok = CharTokenizer()
+        >>> tok.encode("Cl")  # two characters, not one chlorine atom
+        [...]  # length 2
+    """
+
+class AtomTokenizer(_BaseTokenizer):
+    """Atom-level SMILES tokenizer.
+
+    Splits a SMILES string into atoms and structural tokens using the SMILES
+    atom regex (multi-character atoms such as ``Br``, ``Cl``, ``[C@@H]`` stay
+    together) with no BPE merges. ``vocab_size`` is ignored, ``num_merges`` is
+    always 0, and vocabulary file I/O is not supported.
+
+    Examples:
+        >>> tok = AtomTokenizer()
+        >>> tok.encode("CCl")  # 'C' + 'Cl'
+        [...]  # length 2
+    """
+
+class CharBPETokenizer(_BaseTokenizer):
+    """Character-level BPE tokenizer.
+
+    Pre-tokenizes a SMILES string into characters, then applies BPE merges
+    learned by frequency during :meth:`train_from_iterator`.
+    """
+
+class SmilesTokenizer(_BaseTokenizer):
+    """Atom-level BPE tokenizer (SMILES Pair Encoding, "SPE").
+
+    Pre-tokenizes a SMILES string into atoms, then applies BPE merges learned by
+    frequency during training. This is the original rustmolbpe tokenizer.
+
+    Examples:
+        >>> tokenizer = SmilesTokenizer()
+        >>> tokenizer.load_vocabulary("vocab.txt")
+        >>> ids = tokenizer.encode("CCO")
+        >>> smiles = tokenizer.decode(ids)
+    """

@@ -25,6 +25,11 @@ dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",
 ]
+# Dependencies for the tokenizer_stats.py analysis script.
+stats = [
+    "numpy>=1.21",
+    "matplotlib>=3.5",
+]
 
 # Tells Python to use maturin as the build backend
 [build-system]

@@ -1,6 +1,8 @@
 """Type stubs for rustmolbpe - High-performance tokenizers for molecular SMILES."""
 
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, TypeVar
+
+_T = TypeVar("_T", bound="_BaseTokenizer")
 
 def atomwise_tokenize(smiles: str) -> List[str]:
     """Tokenize a SMILES string into atom-level tokens.
@@ -85,6 +87,52 @@ class _BaseTokenizer:
         Raises:
             IOError: If file cannot be written
             NotImplementedError: For non-BPE tokenizers (CharTokenizer, AtomTokenizer)
+        """
+        ...
+
+    # HuggingFace JSON interop
+    def save_huggingface(self, path: str) -> None:
+        """Export the tokenizer to a HuggingFace ``tokenizers`` JSON file.
+
+        The emitted ``tokenizer.json`` is loadable by
+        ``transformers.PreTrainedTokenizerFast(tokenizer_file=...)`` and the
+        ``tokenizers`` library. :class:`CharTokenizer` and
+        :class:`CharBPETokenizer` export as a ``BPE`` model; :class:`AtomTokenizer`
+        as a ``WordLevel`` model with an atom-regex ``Split`` pre-tokenizer.
+
+        Note:
+            HuggingFace applies merge-order BPE while rustmolbpe uses greedy
+            longest-match, so for :class:`CharBPETokenizer` the vocabulary and
+            merges transfer exactly but token *sequences* may differ slightly.
+
+        Args:
+            path: Path to write the ``tokenizer.json`` file.
+
+        Raises:
+            IOError: If the file cannot be written.
+            NotImplementedError: For :class:`SmilesTokenizer` (atom-level BPE
+                cannot be expressed as a stock HuggingFace fast tokenizer).
+        """
+        ...
+
+    @classmethod
+    def from_huggingface(cls: type[_T], path: str) -> _T:
+        """Load a tokenizer from a HuggingFace ``tokenizers`` JSON file.
+
+        Accepts files written by :meth:`save_huggingface` (or compatible
+        character-level ``BPE`` / atom-level ``WordLevel`` tokenizers). The file's
+        granularity and merge profile must match the class this is called on.
+
+        Args:
+            path: Path to a HuggingFace ``tokenizer.json`` file.
+
+        Returns:
+            A new tokenizer instance of the calling class.
+
+        Raises:
+            IOError: If the file cannot be read.
+            ValueError: If the file is malformed, or its granularity / merge
+                profile does not match this tokenizer class.
         """
         ...
 

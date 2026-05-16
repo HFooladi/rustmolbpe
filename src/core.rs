@@ -155,6 +155,37 @@ impl TokenizerCore {
         }
     }
 
+    // --- HuggingFace JSON interop -------------------------------------------
+
+    /// Export to a HuggingFace `tokenizers` JSON file.
+    ///
+    /// Atom-level BPE (`SmilesTokenizer`) cannot be expressed as a stock
+    /// HuggingFace fast tokenizer, so it is rejected with `NotImplementedError`.
+    pub(crate) fn save_huggingface(&self, path: &str) -> PyResult<()> {
+        if self.allow_merges && self.pretokenizer.kind() == PreTokenizerKind::Atom {
+            return Err(pyo3::exceptions::PyNotImplementedError::new_err(
+                "save_huggingface is not supported for SmilesTokenizer (atom-level BPE). \
+                 HuggingFace's fast BPE model merges only single characters within a \
+                 pre-token, so atom-level merges cannot be represented. Use \
+                 save_vocabulary() for the SMILESPE format, or CharBPETokenizer for an \
+                 exportable BPE tokenizer.",
+            ));
+        }
+        let json = crate::huggingface::to_hf_json(self)?;
+        std::fs::write(path, json)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("Cannot write file: {e}")))
+    }
+
+    /// Restore from a HuggingFace `tokenizers` JSON file.
+    ///
+    /// Rejects files whose granularity / merge profile does not match this
+    /// tokenizer class, mirroring the cross-class pickle guard.
+    pub(crate) fn restore_from_huggingface(&mut self, path: &str) -> PyResult<()> {
+        let json = std::fs::read_to_string(path)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("Cannot read file: {e}")))?;
+        crate::huggingface::restore_from_hf_json(self, &json)
+    }
+
     // --- Encoding / decoding ------------------------------------------------
 
     pub(crate) fn encode(&self, smiles: &str, add_special_tokens: bool) -> Vec<u32> {

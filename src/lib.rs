@@ -14,6 +14,7 @@
 mod constants;
 mod core;
 mod encoding;
+mod huggingface;
 mod padding;
 mod pretokenizer;
 mod python;

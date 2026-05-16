@@ -72,6 +72,7 @@ src/
 ├── vocabulary.rs       # load/save vocabulary, query methods
 ├── padding.rs          # pad, encode_batch_padded
 ├── serialization.rs    # __reduce__, __setstate__ pickle support (versioned)
+├── huggingface.rs      # save_huggingface / from_huggingface (tokenizer.json)
 └── utils.rs            # atomwise_tokenize helper
 ```
 
@@ -97,6 +98,7 @@ pre-tokenization granularity and whether BPE merges are learned:
 - **Special Tokens** (`constants.rs`): Fixed IDs 0-3 for PAD, UNK, BOS, EOS
 - **Vocabulary I/O** (`vocabulary.rs`): SMILESPE-compatible format loading/saving (BPE tokenizers only; the no-merge classes raise `NotImplementedError`)
 - **Serialization** (`serialization.rs`): Versioned pickle support; v2 carries the pre-tokenizer granularity, legacy v1 pickles load as atom-level
+- **HuggingFace interop** (`huggingface.rs`): `save_huggingface`/`from_huggingface` round-trip the HF `tokenizers` `tokenizer.json` format; char-level → `BPE` model, atom-level → `WordLevel` model. `SmilesTokenizer` (atom-level BPE) cannot be represented and raises `NotImplementedError` on export
 
 ### Python Bindings
 

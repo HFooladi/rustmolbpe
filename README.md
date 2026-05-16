@@ -12,6 +12,7 @@ A high-performance BPE (Byte Pair Encoding) tokenizer for molecular SMILES writt
 - **Fast training**: Parallel processing with Rayon for efficient training on large molecular datasets
 - **Streaming support**: Train on datasets of any size with configurable buffer sizes
 - **SMILESPE compatibility**: Load and save vocabularies in SMILESPE format
+- **HuggingFace interop**: Export to / import from the `tokenizers` `tokenizer.json` format for use with `transformers`
 - **Python bindings**: Seamless integration with Python via PyO3
 
 ## Installation
@@ -387,6 +388,49 @@ c 1
 ```
 
 Each line contains two space-separated tokens representing a merge operation.
+
+## HuggingFace Interop
+
+Export a trained tokenizer to the HuggingFace `tokenizers` `tokenizer.json`
+format and use it anywhere in the HuggingFace ecosystem:
+
+```python
+import rustmolbpe
+
+tok = rustmolbpe.CharBPETokenizer()
+tok.train_from_iterator(smiles_generator("chembl.smi"), vocab_size=8000)
+tok.save_huggingface("tokenizer.json")
+
+# Load it back into rustmolbpe...
+restored = rustmolbpe.CharBPETokenizer.from_huggingface("tokenizer.json")
+
+# ...or use it from `transformers`:
+from transformers import PreTrainedTokenizerFast
+hf = PreTrainedTokenizerFast(tokenizer_file="tokenizer.json")
+```
+
+Which tokenizers can be exported, and how they map onto HuggingFace's models:
+
+| Class              | HuggingFace representation                     | Fidelity   |
+|--------------------|------------------------------------------------|------------|
+| `CharTokenizer`    | `BPE` model, no merges                         | exact      |
+| `CharBPETokenizer` | `BPE` model with character merges              | see note   |
+| `AtomTokenizer`    | `WordLevel` model + atom-regex `Split`         | exact      |
+| `SmilesTokenizer`  | not supported — raises `NotImplementedError`   | —          |
+
+**Notes:**
+
+- `SmilesTokenizer` (atom-level BPE) cannot be expressed as a stock HuggingFace
+  fast tokenizer: HuggingFace's `BPE` model only merges single characters within
+  a pre-token, so it cannot treat a multi-character atom such as `[C@@H]` as an
+  atomic unit. `save_huggingface` raises `NotImplementedError` for it — use
+  `save_vocabulary` (SMILESPE format) instead, or `CharBPETokenizer` for an
+  exportable BPE tokenizer.
+- For `CharBPETokenizer` the vocabulary and merges transfer exactly, but
+  HuggingFace applies *merge-order* BPE while rustmolbpe uses *greedy
+  longest-match*, so individual token sequences may occasionally differ.
+- `from_huggingface` accepts files matching the calling class's granularity and
+  merge profile; a mismatch raises `ValueError`.
 
 ## Training on Large Datasets
 

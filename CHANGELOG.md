@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     backward-compatible.
 - `has_vocabulary()` method on every tokenizer (reports whether a base
   vocabulary has been built, distinct from `is_trained()` which reports merges).
+- HuggingFace `tokenizers` JSON interop:
+  - `save_huggingface(path)` exports a tokenizer to the `tokenizer.json`
+    format. `CharTokenizer`/`CharBPETokenizer` export as a `BPE` model and
+    `AtomTokenizer` as a `WordLevel` model with an atom-regex `Split`
+    pre-tokenizer. `SmilesTokenizer` (atom-level BPE) raises
+    `NotImplementedError` — it cannot be expressed as a stock HuggingFace fast
+    tokenizer.
+  - `from_huggingface(path)` classmethod imports such a file back, rejecting
+    files whose granularity/merge profile does not match the class.
+  - New `hf` install extra (`pip install rustmolbpe[hf]`) pulls in the
+    `tokenizers` library used by the export cross-check tests.
 - `tokenizer_stats.py` — script that computes per-molecule token-count
   statistics for every tokenizer over the ChEMBL 36 dataset (console table,
   CSV, and histogram figure). Install extras with `pip install rustmolbpe[stats]`.

@@ -138,6 +138,34 @@ macro_rules! define_tokenizer {
                 self.core.save_vocabulary(path)
             }
 
+            // --- HuggingFace JSON interop -----------------------------------
+
+            /// Export to a HuggingFace `tokenizers` JSON file.
+            ///
+            /// The emitted `tokenizer.json` is loadable by
+            /// `transformers.PreTrainedTokenizerFast`. Raises
+            /// `NotImplementedError` for `SmilesTokenizer` (atom-level BPE
+            /// cannot be expressed as a stock HuggingFace fast tokenizer).
+            #[pyo3(signature = (path))]
+            pub fn save_huggingface(&self, path: &str) -> PyResult<()> {
+                self.core.save_huggingface(path)
+            }
+
+            /// Load a tokenizer from a HuggingFace `tokenizers` JSON file.
+            ///
+            /// Raises `ValueError` if the file's granularity / merge profile
+            /// does not match this tokenizer class.
+            #[classmethod]
+            #[pyo3(signature = (path))]
+            pub fn from_huggingface(
+                _cls: &Bound<'_, PyType>,
+                path: &str,
+            ) -> PyResult<Self> {
+                let mut core = TokenizerCore::new($kind, $allow_merges);
+                core.restore_from_huggingface(path)?;
+                Ok(Self { core })
+            }
+
             // --- Vocabulary queries -----------------------------------------
 
             /// The vocabulary size (special tokens + base units + merges).

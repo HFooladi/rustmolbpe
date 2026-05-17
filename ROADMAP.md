@@ -9,86 +9,81 @@ This document outlines the planned improvements and future direction for rustmol
 
 ---
 
-## Short-term (v0.2.0)
+## Completed (v0.1.0 – v0.3.0)
 
-Quick wins and important fixes that improve usability without major architectural changes.
+Work already shipped. Kept here for context; see [CHANGELOG.md](CHANGELOG.md) for the per-release detail.
 
-### Python API Improvements
-- [x] 🟢 Add `py.typed` marker for PEP 561 compliance
-- [x] 🟢 Add `is_trained()` method to check tokenizer state
-- [x] 🟢 ~~Add `get_vocab_size()` method~~ (skipped - `vocab_size` property already exists)
-- [x] 🟡 Add `get_merges()` method to inspect learned merge rules
-- [x] 🟡 Implement `__reduce__`/`__setstate__` for pickle support
+### v0.3.0 — Tokenizer ladder & interop
+- [x] 🔴 Four-tokenizer ladder sharing one `TokenizerCore` — `CharTokenizer`, `AtomTokenizer`, `CharBPETokenizer`, `SmilesTokenizer`
+- [x] 🔴 HuggingFace `tokenizer.json` interop — `save_huggingface()` / `from_huggingface()` (atom-level BPE export excepted)
+- [x] 🟡 Granularity-aware pickle format (v2); legacy v1 pickles still load
+- [x] 🟡 `tokenizer_stats.py` — per-molecule token-count statistics across all four tokenizers
+- [x] 🟢 `has_vocabulary()` method (distinct from `is_trained()`)
+- [x] 🟢 Runtime `rustmolbpe.__version__`, with `Cargo.toml` as the single source of truth (`dynamic` version in `pyproject.toml`)
 
-### Testing & Quality
-- [x] 🟢 Add code coverage reporting with codecov
-- [x] 🟢 Add Rust unit tests for core functions in lib.rs
-- [x] 🟡 Add error handling edge case tests
-- [x] 🟡 Set up coverage threshold enforcement in CI
-
-### Documentation
-- [x] 🟢 Add troubleshooting section to README
-- [x] 🟢 Create CHANGELOG.md with proper versioning history
-- [x] 🟢 Add docstrings to all public Rust functions
-
-### Infrastructure
-- [x] 🟢 Add issue templates (bug report, feature request)
-- [x] 🟢 Add pull request template
-- [x] 🟢 Add CODE_OF_CONDUCT.md
-- [x] 🟢 Add SECURITY.md with vulnerability reporting guidelines
+### v0.2.0 — API, testing & infrastructure
+- [x] 🟢 `py.typed` marker for PEP 561 compliance
+- [x] 🟢 `is_trained()` method to check tokenizer state
+- [x] 🟡 `get_merges()` method to inspect learned merge rules
+- [x] 🟡 `__reduce__`/`__setstate__` for pickle support
+- [x] 🟢 Code coverage reporting (Codecov) with threshold enforcement in CI
+- [x] 🟢 Rust unit tests for core functions
+- [x] 🟡 Error-handling edge-case tests
+- [x] 🟢 Troubleshooting section in README; `CHANGELOG.md`; docstrings on public Rust functions
+- [x] 🟢 Issue templates, PR template, `CODE_OF_CONDUCT.md`, `SECURITY.md`
 
 ---
 
-## Medium-term (v0.3.0 - v0.5.0)
+## v0.4.0 — ML Framework Integration
 
-Feature enhancements that improve performance, flexibility, and integration capabilities.
+**Current priority.** Make the tokenizer drop-in for ML training pipelines so users don't hand-roll glue code.
 
-### Performance Improvements (v0.3.0)
-- [ ] 🔴 Implement trie-based encoding for O(n log V) complexity (currently O(n*m))
-- [ ] 🟡 Add configurable thread count for parallel operations
-- [ ] 🟡 Memory-mapped vocabulary loading for large vocabularies
-- [ ] 🟡 Batch encoding optimizations with better memory reuse
-
-### Custom Special Tokens (v0.3.0)
-- [ ] 🟡 Support user-defined special tokens beyond PAD/UNK/BOS/EOS
-- [ ] 🟡 Configurable special token IDs
-- [ ] 🟢 Add `add_special_tokens()` method
-
-### ML Framework Integration (v0.4.0)
-
-*Priority: PyTorch and NumPy first*
-
-- [ ] 🟢 NumPy array output options for `encode()` and `encode_batch()`
+- [ ] 🟢 NumPy array output options for `encode()` and `batch_encode()`
 - [ ] 🟡 PyTorch tensor output support (optional dependency)
 - [ ] 🟡 DataLoader-compatible dataset wrapper class
 - [ ] 🟡 Collate function for variable-length sequences
 - [ ] 🟡 GPU-friendly batch preparation utilities
+- [ ] 🟡 Integration guide for the `transformers` library (using `__call__` + `save_huggingface`)
 
-### Vocabulary Features (v0.4.0)
+---
+
+## v0.5.0 — Custom Special Tokens & Performance
+
+Flexibility for non-default vocabularies, plus the lower-risk performance wins.
+
+### Custom Special Tokens
+- [ ] 🟡 Support user-defined special tokens beyond PAD/UNK/BOS/EOS
+- [ ] 🟡 Configurable special token IDs
+- [ ] 🟢 Add `add_special_tokens()` method
+- [ ] 🟢 `skip_special_tokens` option on `decode()` / `batch_decode()`
+
+### Performance
+- [ ] 🟡 Configurable thread count for parallel operations
+- [ ] 🟡 Batch encoding optimizations with better memory reuse
+- [ ] 🟡 Memory-mapped vocabulary loading for large vocabularies
+
+---
+
+## v0.6.0 — Vocabulary & Serialization
+
+Make vocabularies inspectable, verifiable, and composable.
+
 - [ ] 🟢 Add vocabulary format version field
 - [ ] 🟡 Vocabulary validation during loading (detect malformed files)
 - [ ] 🟡 `get_statistics()` method (vocab size, merge count, token frequencies)
 - [ ] 🟡 Vocabulary merging utility (combine two vocabularies)
-
-### Tokenizer Serialization (v0.5.0)
-- [x] 🟡 JSON export/import for tokenizer state — `save_huggingface` /
-  `from_huggingface` (HuggingFace `tokenizers` JSON format)
 - [ ] 🟡 Save/load configuration separately from vocabulary
 - [ ] 🟢 Version compatibility checking on load
-
-### Testing Enhancements
-- [ ] 🟡 Performance regression benchmarks in CI
-- [ ] 🟡 Threading safety tests with concurrent access
-- [ ] 🟡 Property-based testing with hypothesis
-- [ ] 🟢 Fuzz testing for SMILES parsing edge cases
+- [ ] 🔴 `SmilesTokenizer` → HuggingFace export via a custom pre-tokenizer component (currently raises `NotImplementedError` — atom-level BPE cannot be expressed as a stock HF fast tokenizer)
 
 ---
 
-## Long-term (v1.0.0+)
+## v1.0.0 — Stabilization & Advanced Performance
 
 Major features and stabilization for production readiness.
 
-### Performance (v1.0.0)
+### Performance
+- [ ] 🔴 Trie-based encoding for O(n log V) complexity (currently O(n·m))
 - [ ] 🔴 Optional SIMD acceleration for batch operations
 - [ ] 🔴 Streaming encode/decode for memory-constrained environments
 - [ ] 🟡 Lazy vocabulary loading
@@ -99,47 +94,47 @@ Major features and stabilization for production readiness.
 - [ ] 🟡 Vocabulary analysis and visualization tools
 - [ ] 🟡 Merge rule importance scoring
 
-### API Stabilization (v1.0.0)
+### API Stabilization
 - [ ] 🟡 Semantic versioning guarantees
 - [ ] 🟡 Deprecation policy and migration guides
 - [ ] 🟢 API stability markers
 
 ### Extended Framework Support
-- [x] 🟡 HuggingFace Tokenizers compatibility layer — `save_huggingface` /
-  `from_huggingface` export to / import from `tokenizer.json` (atom-level BPE
-  excepted; see README)
-- [ ] 🟡 Integration guide for transformers library
 - [ ] 🔴 JAX/Flax tensor support
-
-### Documentation
-- [ ] 🟡 Algorithm deep-dive documentation (BPE internals, SMILES parsing)
-- [ ] 🟡 Performance tuning guide
-- [ ] 🟡 ML framework integration tutorials
-- [ ] 🟢 Migration guides from other SMILES tokenizers
-
-### Infrastructure
-- [ ] 🟡 Git LFS for large data files (vocabularies)
-- [ ] 🟢 Pre-commit hooks configuration
-- [ ] 🟡 Docker development environment
-- [ ] 🟡 Automated changelog generation from commits
 
 ---
 
-## Community & Documentation
+## Testing & Quality (ongoing)
 
-Ongoing efforts to build community and improve accessibility.
+- [ ] 🟡 Performance regression benchmarks in CI
+- [ ] 🟡 Threading safety tests with concurrent access
+- [ ] 🟡 Property-based testing with hypothesis
+- [ ] 🟢 Fuzz testing for SMILES parsing edge cases
 
-### Community Building
-- [ ] Add discussion categories on GitHub
-- [ ] Create examples/ directory with common use cases
-- [ ] Jupyter notebook tutorials
-- [ ] Benchmarks comparing with other SMILES tokenizers
+---
 
-### Documentation Improvements
-- [ ] API reference site (using pdoc or mkdocs)
-- [ ] Architecture documentation
-- [ ] Contributing guide improvements
-- [ ] FAQ section
+## Documentation & Community (ongoing)
+
+- [ ] 🟡 API reference site (using pdoc or mkdocs)
+- [ ] 🟡 Architecture documentation (BPE internals, SMILES parsing deep-dive)
+- [ ] 🟡 Performance tuning guide
+- [ ] 🟡 ML framework integration tutorials (Jupyter notebooks)
+- [ ] 🟢 `examples/` directory with common use cases
+- [ ] 🟢 Migration guides from other SMILES tokenizers
+- [ ] 🟢 FAQ section
+- [ ] 🟢 Contributing guide improvements
+- [ ] 🟢 GitHub discussion categories
+
+---
+
+## Infrastructure (ongoing)
+
+- [ ] 🟡 Prebuilt cross-platform binary wheels in CI (manylinux / macOS / Windows; `abi3` to cut the build matrix)
+- [ ] 🟡 conda-forge package
+- [ ] 🟡 Git LFS for large data files (vocabularies, training data)
+- [ ] 🟡 Docker development environment
+- [ ] 🟡 Automated changelog generation from commits
+- [ ] 🟢 Pre-commit hooks configuration
 
 ---
 
@@ -177,4 +172,4 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 ---
 
-*Last updated: January 2025*
+*Last updated: May 2026*

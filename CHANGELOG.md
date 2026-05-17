@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-17
+
 ### Added
 
 - Three new tokenizer classes alongside `SmilesTokenizer`, forming a ladder
@@ -33,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tokenizer_stats.py` — script that computes per-molecule token-count
   statistics for every tokenizer over the ChEMBL 36 dataset (console table,
   CSV, and histogram figure). Install extras with `pip install rustmolbpe[stats]`.
+- Runtime `rustmolbpe.__version__`, populated from `CARGO_PKG_VERSION` so it
+  always matches the compiled binary. The module also exports an explicit
+  `__all__`.
 - Code coverage reporting with Codecov integration in CI
 - Coverage threshold enforcement via `codecov.yml` configuration
 - 10 new Rust unit tests for core functions (22 total)
@@ -53,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CharTokenizer` and `AtomTokenizer` raise `NotImplementedError` from
   `load_vocabulary` / `save_vocabulary` (the SMILESPE format only stores merge
   rules).
+- `pyproject.toml` now declares `dynamic = ["version"]`, making `Cargo.toml`
+  the single source of truth for the package version (previously duplicated).
 
 ## [0.2.0] - 2025-01-21
 
@@ -98,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 16-18x faster training than SMILESPE
 - ~200,000-280,000 SMILES/second batch encoding
 
-[Unreleased]: https://github.com/HFooladi/rustmolbpe/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/HFooladi/rustmolbpe/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/HFooladi/rustmolbpe/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/HFooladi/rustmolbpe/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/HFooladi/rustmolbpe/releases/tag/v0.1.0

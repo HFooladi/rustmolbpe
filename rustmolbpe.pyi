@@ -4,6 +4,8 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, TypeVar
 
 _T = TypeVar("_T", bound="_BaseTokenizer")
 
+__version__: str
+
 def atomwise_tokenize(smiles: str) -> List[str]:
     """Tokenize a SMILES string into atom-level tokens.
 

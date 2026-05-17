@@ -1,6 +1,6 @@
 [project]
 name = "rustmolbpe"
-version = "0.3.0"
+dynamic = ["version"]
 description = "A BPE (Byte Pair Encoding) tokenizer for molecular SMILES written in Rust with Python bindings"
 readme = "README.md"
 license = { text = "MIT" }

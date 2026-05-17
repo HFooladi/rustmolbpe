@@ -44,5 +44,17 @@ fn rustmolbpe(m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<CharTokenizer>()?;
     m.add_class::<CharBPETokenizer>()?;
     m.add_function(wrap_pyfunction!(utils::atomwise_tokenize_py, m)?)?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    m.add(
+        "__all__",
+        vec![
+            "SmilesTokenizer",
+            "AtomTokenizer",
+            "CharTokenizer",
+            "CharBPETokenizer",
+            "atomwise_tokenize",
+            "__version__",
+        ],
+    )?;
     Ok(())
 }

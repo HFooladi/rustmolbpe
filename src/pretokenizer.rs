@@ -1,12 +1,14 @@
 //! Pluggable pre-tokenization for SMILES strings.
 //!
 //! A [`PreTokenizer`] turns a raw SMILES string into a sequence of string units
-//! before any BPE merging happens. Two granularities are supported:
+//! before any BPE merging happens. Three granularities are supported:
 //!
 //! - [`PreTokenizerKind::Atom`] - regex-based atom-level splitting, where
 //!   multi-character atoms (`Br`, `Cl`, `[C@@H]`) stay as single units.
 //! - [`PreTokenizerKind::Char`] - character-level splitting, one Unicode scalar
 //!   value per unit.
+//! - [`PreTokenizerKind::Byte`] - byte-level splitting, one raw UTF-8 byte per
+//!   unit (see [`crate::bytelevel`]).
 //!
 //! The BPE training and greedy encoding code is granularity-agnostic: it only
 //! sees `Vec<CompactString>` units, so swapping the pre-tokenizer is the only
@@ -24,6 +26,8 @@ pub(crate) enum PreTokenizerKind {
     Atom,
     /// Character-level: one Unicode scalar value per unit.
     Char,
+    /// Byte-level: one raw UTF-8 byte per unit.
+    Byte,
 }
 
 impl PreTokenizerKind {
@@ -32,6 +36,7 @@ impl PreTokenizerKind {
         match self {
             PreTokenizerKind::Atom => "atom",
             PreTokenizerKind::Char => "char",
+            PreTokenizerKind::Byte => "byte",
         }
     }
 
@@ -40,6 +45,7 @@ impl PreTokenizerKind {
         match tag {
             "atom" => Some(PreTokenizerKind::Atom),
             "char" => Some(PreTokenizerKind::Char),
+            "byte" => Some(PreTokenizerKind::Byte),
             _ => None,
         }
     }
@@ -78,6 +84,7 @@ impl PreTokenizer {
         match self.kind {
             PreTokenizerKind::Atom => crate::utils::atomwise_tokenize(smiles, &self.pattern),
             PreTokenizerKind::Char => smiles.chars().map(|c| c.to_compact_string()).collect(),
+            PreTokenizerKind::Byte => crate::bytelevel::split_bytes(smiles),
         }
     }
 }
@@ -88,10 +95,24 @@ mod tests {
 
     #[test]
     fn test_kind_tag_roundtrip() {
-        for kind in [PreTokenizerKind::Atom, PreTokenizerKind::Char] {
+        for kind in [
+            PreTokenizerKind::Atom,
+            PreTokenizerKind::Char,
+            PreTokenizerKind::Byte,
+        ] {
             assert_eq!(PreTokenizerKind::from_tag(kind.as_tag()), Some(kind));
         }
         assert_eq!(PreTokenizerKind::from_tag("bogus"), None);
+    }
+
+    #[test]
+    fn test_byte_split_one_unit_per_utf8_byte() {
+        let pt = PreTokenizer::new(PreTokenizerKind::Byte);
+        // Pure-ASCII SMILES: one unit per character.
+        assert_eq!(pt.split("CCO").len(), 3);
+        // A multi-byte character splits into its raw UTF-8 bytes.
+        assert_eq!(pt.split("C\u{00e9}O").len(), 4); // C + (2 bytes) + O
+        assert!(pt.split("").is_empty());
     }
 
     #[test]

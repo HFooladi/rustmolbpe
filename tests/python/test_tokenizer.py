@@ -1148,3 +1148,99 @@ class TestHuggingFace:
             tok.save_huggingface(path)
             hf = tokenizers.Tokenizer.from_file(path)
         assert hf.get_vocab_size() == tok.vocab_size
+
+
+class TestByteBPETokenizer:
+    """Tests for the byte-level BPE tokenizer."""
+
+    TRAIN = ["CCO", "c1ccccc1", "CC(=O)O", "CCN", "CCCC", "OCC", "c1ccncc1"]
+
+    def _trained(self, vocab_size=320, min_frequency=1):
+        import rustmolbpe
+        tok = rustmolbpe.ByteBPETokenizer()
+        # min_frequency=1 so merges are actually learned on this tiny corpus.
+        tok.train_from_iterator(
+            iter(self.TRAIN), vocab_size=vocab_size, min_frequency=min_frequency
+        )
+        return tok
+
+    def test_base_vocab_is_260(self):
+        """Base vocabulary is always 4 special tokens + 256 byte values."""
+        tok = self._trained()
+        assert tok.base_vocab_size == 260
+
+    def test_encode_decode_roundtrip(self):
+        tok = self._trained()
+        for smiles in self.TRAIN:
+            assert tok.decode(tok.encode(smiles)) == smiles
+
+    def test_never_emits_unk_on_unseen_characters(self):
+        """The 256-byte base alphabet means any input is representable."""
+        tok = self._trained()
+        # 'é' and a CJK character never appear in the training corpus.
+        for smiles in ["CéO", "C中O", "Br[Pt]Cl"]:
+            ids = tok.encode(smiles)
+            assert tok.unk_token_id not in ids
+            assert tok.decode(ids) == smiles
+
+    def test_merges_are_learned(self):
+        """BPE merges run on the byte alphabet just like the char tokenizer."""
+        tok = self._trained(vocab_size=320)
+        assert tok.num_merges > 0
+        assert tok.is_trained()
+        assert tok.vocab_size == 260 + tok.num_merges
+
+    def test_special_tokens_roundtrip(self):
+        tok = self._trained()
+        ids = tok.encode("CCO", add_special_tokens=True)
+        assert ids[0] == tok.bos_token_id
+        assert ids[-1] == tok.eos_token_id
+
+    def test_pickle_roundtrip(self):
+        import pickle
+        tok = self._trained()
+        restored = pickle.loads(pickle.dumps(tok))
+        assert restored.vocab_size == tok.vocab_size
+        assert restored.get_merges() == tok.get_merges()
+        for smiles in self.TRAIN:
+            assert restored.encode(smiles) == tok.encode(smiles)
+
+    def test_cross_class_pickle_rejected(self):
+        """A byte-level pickle must not restore into a different granularity."""
+        import pickle
+        import rustmolbpe
+        state = self._trained().__reduce__()[2]
+        for cls in (rustmolbpe.CharBPETokenizer, rustmolbpe.SmilesTokenizer):
+            other = cls()
+            with pytest.raises(ValueError):
+                other.__setstate__(state)
+
+    def test_smilespe_io_not_supported(self):
+        """SMILESPE vocab files store readable tokens, not raw bytes."""
+        tok = self._trained()
+        with tempfile.TemporaryDirectory() as d:
+            with pytest.raises(NotImplementedError):
+                tok.save_vocabulary(os.path.join(d, "vocab.txt"))
+            with pytest.raises(NotImplementedError):
+                tok.load_vocabulary(os.path.join(d, "vocab.txt"))
+
+    def test_huggingface_export_not_supported(self):
+        import rustmolbpe
+        tok = self._trained()
+        with tempfile.TemporaryDirectory() as d:
+            with pytest.raises(NotImplementedError):
+                tok.save_huggingface(os.path.join(d, "tok.json"))
+            with pytest.raises(NotImplementedError):
+                rustmolbpe.ByteBPETokenizer.from_huggingface(
+                    os.path.join(d, "tok.json")
+                )
+
+    def test_batch_encode_decode(self):
+        tok = self._trained()
+        ids = tok.batch_encode(self.TRAIN)
+        assert tok.batch_decode(ids) == self.TRAIN
+
+    def test_empty_string(self):
+        tok = self._trained()
+        assert tok.encode("") == []
+        assert tok.decode([]) == ""

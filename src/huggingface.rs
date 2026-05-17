@@ -96,6 +96,13 @@ pub(crate) fn to_hf_json(core: &TokenizerCore) -> PyResult<String> {
             });
             (pre, model)
         }
+        PreTokenizerKind::Byte => {
+            // Byte-level export is a planned roadmap item; `core::save_huggingface`
+            // already rejects `ByteBPETokenizer` before reaching this point.
+            return Err(PyValueError::new_err(
+                "Byte-level BPE cannot be exported to HuggingFace JSON yet.",
+            ));
+        }
     };
 
     let tokenizer = json!({

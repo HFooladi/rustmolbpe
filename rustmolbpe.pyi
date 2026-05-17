@@ -462,3 +462,25 @@ class SmilesTokenizer(_BaseTokenizer):
         >>> ids = tokenizer.encode("CCO")
         >>> smiles = tokenizer.decode(ids)
     """
+
+class ByteBPETokenizer(_BaseTokenizer):
+    """Byte-level BPE tokenizer.
+
+    Pre-tokenizes a SMILES string into raw UTF-8 bytes, then applies BPE merges
+    learned by frequency during :meth:`train_from_iterator`. The base alphabet
+    is always the 256 byte values, so every input is representable and ``<unk>``
+    is never produced; encode/decode is a guaranteed lossless round-trip.
+
+    ``base_vocab_size`` is therefore always 260 (4 special tokens + 256 bytes)
+    once trained. SMILESPE and HuggingFace file I/O are not supported (the
+    formats store chemically-readable tokens, not raw bytes); use ``pickle`` to
+    persist a byte-level tokenizer. :meth:`load_vocabulary`,
+    :meth:`save_vocabulary`, :meth:`save_huggingface` and
+    :meth:`from_huggingface` raise ``NotImplementedError``.
+
+    Examples:
+        >>> tok = ByteBPETokenizer()
+        >>> tok.train_from_iterator(["CCO", "c1ccccc1"], vocab_size=300)
+        >>> tok.decode(tok.encode("CCO")) == "CCO"
+        True
+    """

@@ -125,6 +125,7 @@ impl TokenizerCore {
     /// Load a SMILESPE-format vocabulary. Only valid for BPE tokenizers.
     pub(crate) fn load_vocabulary(&mut self, path: &str) -> PyResult<()> {
         self.ensure_merges_supported("load_vocabulary")?;
+        self.reject_byte_level_vocab_io("load_vocabulary")?;
         vocabulary::load_vocabulary(
             path,
             &mut self.merges,
@@ -137,8 +138,24 @@ impl TokenizerCore {
     /// Save a SMILESPE-format vocabulary. Only valid for BPE tokenizers.
     pub(crate) fn save_vocabulary(&self, path: &str) -> PyResult<()> {
         self.ensure_merges_supported("save_vocabulary")?;
+        self.reject_byte_level_vocab_io("save_vocabulary")?;
         vocabulary::save_vocabulary(path, &self.merges, &self.id_to_atom)
             .map_err(pyo3::exceptions::PyIOError::new_err)
+    }
+
+    /// Byte-level BPE uses raw-byte tokens that the SMILESPE text format
+    /// (designed for chemically-readable tokens) cannot meaningfully represent.
+    /// Pickle is the persistence path for a byte-level tokenizer instead.
+    fn reject_byte_level_vocab_io(&self, method: &str) -> PyResult<()> {
+        if self.pretokenizer.kind() == PreTokenizerKind::Byte {
+            Err(pyo3::exceptions::PyNotImplementedError::new_err(format!(
+                "{method} is not supported for ByteBPETokenizer; the SMILESPE \
+                 vocabulary format stores chemically-readable tokens, not raw \
+                 bytes. Use pickle to persist a byte-level tokenizer."
+            )))
+        } else {
+            Ok(())
+        }
     }
 
     /// The SMILESPE vocabulary format only stores merge rules, so a no-merge
@@ -171,6 +188,13 @@ impl TokenizerCore {
                  exportable BPE tokenizer.",
             ));
         }
+        if self.pretokenizer.kind() == PreTokenizerKind::Byte {
+            return Err(pyo3::exceptions::PyNotImplementedError::new_err(
+                "save_huggingface is not yet supported for ByteBPETokenizer. Byte-level \
+                 BPE maps to HuggingFace's ByteLevel pre-tokenizer; this export is a \
+                 planned roadmap item. Use pickle to persist the tokenizer.",
+            ));
+        }
         let json = crate::huggingface::to_hf_json(self)?;
         std::fs::write(path, json)
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("Cannot write file: {e}")))
@@ -181,6 +205,11 @@ impl TokenizerCore {
     /// Rejects files whose granularity / merge profile does not match this
     /// tokenizer class, mirroring the cross-class pickle guard.
     pub(crate) fn restore_from_huggingface(&mut self, path: &str) -> PyResult<()> {
+        if self.pretokenizer.kind() == PreTokenizerKind::Byte {
+            return Err(pyo3::exceptions::PyNotImplementedError::new_err(
+                "from_huggingface is not yet supported for ByteBPETokenizer.",
+            ));
+        }
         let json = std::fs::read_to_string(path)
             .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("Cannot read file: {e}")))?;
         crate::huggingface::restore_from_hf_json(self, &json)
@@ -201,7 +230,8 @@ impl TokenizerCore {
     }
 
     pub(crate) fn decode(&self, ids: &[u32]) -> PyResult<String> {
-        encoding::decode(ids, &self.id_to_atom).map_err(pyo3::exceptions::PyValueError::new_err)
+        encoding::decode(ids, &self.id_to_atom, self.pretokenizer.kind())
+            .map_err(pyo3::exceptions::PyValueError::new_err)
     }
 
     pub(crate) fn batch_encode(
@@ -227,7 +257,7 @@ impl TokenizerCore {
         py: Python<'_>,
         ids_list: &[Vec<u32>],
     ) -> PyResult<Vec<String>> {
-        encoding::batch_decode(py, ids_list, &self.id_to_atom)
+        encoding::batch_decode(py, ids_list, &self.id_to_atom, self.pretokenizer.kind())
             .map_err(pyo3::exceptions::PyValueError::new_err)
     }
 
@@ -451,14 +481,28 @@ impl TokenizerCore {
             atom_counts.len()
         );
 
-        // Build base vocabulary, sorted by frequency then alphabetically.
-        let mut atoms_sorted: Vec<_> = atom_counts.into_iter().collect();
-        atoms_sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        // Build the base vocabulary.
+        if self.pretokenizer.kind() == PreTokenizerKind::Byte {
+            // Byte-level: the base alphabet is always all 256 byte values, in
+            // byte order, regardless of what the corpus contained. This fixed
+            // 256-symbol alphabet is what guarantees no `<unk>` is ever emitted.
+            for byte in 0u16..256 {
+                let token = crate::bytelevel::byte_to_token(byte as u8);
+                let id = self.id_to_atom.len() as u32;
+                self.atom_to_id.insert(token.clone(), id);
+                self.id_to_atom.push(token);
+            }
+        } else {
+            // Atom-/char-level: the base vocabulary is the observed units,
+            // sorted by frequency then alphabetically.
+            let mut atoms_sorted: Vec<_> = atom_counts.into_iter().collect();
+            atoms_sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
-        for (atom, _count) in atoms_sorted {
-            let id = self.id_to_atom.len() as u32;
-            self.atom_to_id.insert(atom.clone(), id);
-            self.id_to_atom.push(atom);
+            for (atom, _count) in atoms_sorted {
+                let id = self.id_to_atom.len() as u32;
+                self.atom_to_id.insert(atom.clone(), id);
+                self.id_to_atom.push(atom);
+            }
         }
 
         let base_vocab_size = self.id_to_atom.len() as u32;

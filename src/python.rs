@@ -14,6 +14,7 @@
 //! | `AtomTokenizer`    | atom        | no            |
 //! | `CharBPETokenizer` | character   | yes           |
 //! | `SmilesTokenizer`  | atom        | yes (SPE)     |
+//! | `ByteBPETokenizer` | byte        | yes           |
 
 use std::collections::HashMap as StdHashMap;
 
@@ -378,4 +379,16 @@ define_tokenizer!(
     "Atom-level BPE tokenizer (SMILES Pair Encoding, \"SPE\").\n\n\
      Pre-tokenizes a SMILES string into atoms, then applies BPE merges learned\n\
      by frequency during training. This is the original rustmolbpe tokenizer."
+);
+
+define_tokenizer!(
+    ByteBPETokenizer,
+    PreTokenizerKind::Byte,
+    true,
+    "Byte-level BPE tokenizer.\n\n\
+     Pre-tokenizes a SMILES string into raw UTF-8 bytes, then applies BPE\n\
+     merges learned by frequency during training. The base alphabet is always\n\
+     the 256 byte values, so every input is representable and no `<unk>` token\n\
+     is ever produced. SMILESPE and HuggingFace file I/O are not supported;\n\
+     use pickle to persist a byte-level tokenizer."
 );

@@ -45,6 +45,11 @@ Work already shipped. Kept here for context; see [CHANGELOG.md](CHANGELOG.md) fo
 - [ ] 🟡 GPU-friendly batch preparation utilities
 - [ ] 🟡 Integration guide for the `transformers` library (using `__call__` + `save_huggingface`)
 
+### Tokenizer ladder extensions
+- [x] 🟡 `ByteBPETokenizer` — byte-level BPE; fixed 256-symbol base alphabet, lossless round-trip, never emits `<unk>`
+- [ ] 🔴 Unigram LM tokenizer — probabilistic segmentation (EM training + Viterbi decoding), the one tokenization family not yet covered
+- [ ] 🟡 HuggingFace export for `ByteBPETokenizer` (byte-level BPE → HF `ByteLevel` pre-tokenizer + `BPE` model)
+
 ---
 
 ## v0.5.0 — Custom Special Tokens & Performance

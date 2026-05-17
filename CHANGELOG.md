@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ByteBPETokenizer` — a fifth tokenizer class extending the ladder with
+  byte-level BPE. It pre-tokenizes on raw UTF-8 bytes, so the base alphabet is
+  always the 256 byte values: every input is representable, no `<unk>` token is
+  ever produced, and encode/decode is a guaranteed lossless round-trip.
+  SMILESPE and HuggingFace file I/O are not supported (those formats store
+  chemically-readable tokens, not raw bytes); use `pickle` to persist a
+  byte-level tokenizer.
+
 ## [0.3.0] - 2026-05-17
 
 ### Added

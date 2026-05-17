@@ -88,7 +88,7 @@ tokenizer.load_vocabulary("my_vocab.txt")
 
 ## Tokenizers
 
-`rustmolbpe` provides four tokenizers spanning a ladder from simplest to most
+`rustmolbpe` provides five tokenizers spanning a ladder from simplest to most
 advanced. They share an identical API, so you can swap one for another and
 compare their behavior:
 
@@ -98,6 +98,7 @@ compare their behavior:
 | `AtomTokenizer`    | atom (regex)      | no            | Splits into atoms/structural tokens (Br, Cl, [C@@H] kept whole) |
 | `CharBPETokenizer` | character         | yes           | BPE merges learned on top of character splitting         |
 | `SmilesTokenizer`  | atom (regex)      | yes           | BPE merges learned on top of atom splitting ("SPE")      |
+| `ByteBPETokenizer` | byte (UTF-8)      | yes           | BPE merges on raw bytes; never emits `<unk>`, lossless round-trip |
 
 ```python
 import rustmolbpe
@@ -120,6 +121,13 @@ char_bpe.train_from_iterator(iter(smiles_data), vocab_size=1000)
 builds the base vocabulary (`vocab_size` is ignored), `num_merges` is always 0,
 and vocabulary file I/O is not supported. Use `has_vocabulary()` to check
 whether a base vocabulary has been built and `is_trained()` to check for merges.
+
+`ByteBPETokenizer` pre-tokenizes on raw UTF-8 bytes. Its base alphabet is always
+the 256 byte values (`base_vocab_size == 260`, including the 4 special tokens),
+so any input is representable: it never emits `<unk>` and encode/decode is a
+guaranteed lossless round-trip. SMILESPE and HuggingFace file I/O are not
+supported (those formats store chemically-readable tokens, not raw bytes) — use
+`pickle` to persist a byte-level tokenizer.
 
 ### Comparing tokenizers on ChEMBL
 
@@ -417,6 +425,7 @@ Which tokenizers can be exported, and how they map onto HuggingFace's models:
 | `CharBPETokenizer` | `BPE` model with character merges              | see note   |
 | `AtomTokenizer`    | `WordLevel` model + atom-regex `Split`         | exact      |
 | `SmilesTokenizer`  | not supported — raises `NotImplementedError`   | —          |
+| `ByteBPETokenizer` | not yet supported — raises `NotImplementedError` | —        |
 
 **Notes:**
 

@@ -5,7 +5,7 @@ use compact_str::CompactString;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-use crate::pretokenizer::PreTokenizer;
+use crate::pretokenizer::{PreTokenizer, PreTokenizerKind};
 
 /// Encode a SMILES string into token IDs using greedy longest-match.
 ///
@@ -75,10 +75,16 @@ pub(crate) fn encode(
 /// # Arguments
 /// * `ids` - Vector of token IDs to decode
 /// * `id_to_atom` - Vector mapping token IDs to atom strings
+/// * `kind` - pre-tokenizer granularity; byte-level tokens are reassembled from
+///   their byte representatives back into UTF-8
 ///
 /// # Returns
 /// The reconstructed SMILES string, or an error if any token ID is invalid
-pub(crate) fn decode(ids: &[u32], id_to_atom: &[CompactString]) -> Result<String, String> {
+pub(crate) fn decode(
+    ids: &[u32],
+    id_to_atom: &[CompactString],
+    kind: PreTokenizerKind,
+) -> Result<String, String> {
     let mut result = String::new();
 
     for &id in ids {
@@ -89,7 +95,13 @@ pub(crate) fn decode(ids: &[u32], id_to_atom: &[CompactString]) -> Result<String
         }
     }
 
-    Ok(result)
+    // Atom-/char-level tokens are plain UTF-8 substrings, so concatenation is
+    // the final answer. Byte-level tokens are byte representatives that must be
+    // mapped back to raw bytes and re-decoded as UTF-8.
+    match kind {
+        PreTokenizerKind::Byte => crate::bytelevel::decode_byte_string(&result),
+        PreTokenizerKind::Atom | PreTokenizerKind::Char => Ok(result),
+    }
 }
 
 /// Encode multiple SMILES strings in parallel using rayon.
@@ -127,11 +139,12 @@ pub(crate) fn batch_decode(
     py: Python<'_>,
     ids_list: &[Vec<u32>],
     id_to_atom: &[CompactString],
+    kind: PreTokenizerKind,
 ) -> Result<Vec<String>, String> {
     py.detach(|| {
         ids_list
             .par_iter()
-            .map(|ids| decode(ids, id_to_atom))
+            .map(|ids| decode(ids, id_to_atom, kind))
             .collect()
     })
 }
@@ -205,7 +218,7 @@ mod tests {
         let ids = encode(smiles, false, &pattern, &atom_to_id, bos, eos, unk);
         assert_eq!(ids, vec![4, 4, 5]);
 
-        let decoded = decode(&ids, &id_to_atom).unwrap();
+        let decoded = decode(&ids, &id_to_atom, PreTokenizerKind::Atom).unwrap();
         assert_eq!(decoded, smiles);
     }
 
@@ -247,7 +260,7 @@ mod tests {
         let ids = encode("Cl", false, &pt, &atom_to_id, bos, eos, unk);
         assert_eq!(ids, vec![4, 5]); // C=4, l=5
 
-        let decoded = decode(&ids, &id_to_atom).unwrap();
+        let decoded = decode(&ids, &id_to_atom, PreTokenizerKind::Char).unwrap();
         assert_eq!(decoded, "Cl");
     }
 
@@ -257,14 +270,17 @@ mod tests {
 
         let ids = encode("ClO", false, &pt, &atom_to_id, bos, eos, unk);
         assert_eq!(ids, vec![4, 5, 6]); // C, l, O
-        assert_eq!(decode(&ids, &id_to_atom).unwrap(), "ClO");
+        assert_eq!(
+            decode(&ids, &id_to_atom, PreTokenizerKind::Char).unwrap(),
+            "ClO"
+        );
     }
 
     #[test]
     fn test_decode_invalid_id() {
         let (_, _, id_to_atom, _, _, _, _) = setup_tokenizer();
 
-        let result = decode(&[999], &id_to_atom);
+        let result = decode(&[999], &id_to_atom, PreTokenizerKind::Atom);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Unknown token id: 999"));
     }

@@ -11,6 +11,7 @@
 //! Unlike byte-level BPE tokenizers, the atom-level tokenizers treat
 //! multi-character atoms (like `Br`, `Cl`, `[C@@H]`) as single units.
 
+mod bytelevel;
 mod constants;
 mod core;
 mod encoding;
@@ -32,7 +33,9 @@ pub use constants::{
 };
 
 // Re-export the Python-visible tokenizer classes and function.
-pub use python::{AtomTokenizer, CharBPETokenizer, CharTokenizer, SmilesTokenizer};
+pub use python::{
+    AtomTokenizer, ByteBPETokenizer, CharBPETokenizer, CharTokenizer, SmilesTokenizer,
+};
 pub use utils::atomwise_tokenize_py;
 
 /// rustmolbpe - tokenizers for molecular SMILES with Python bindings.
@@ -43,6 +46,7 @@ fn rustmolbpe(m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<AtomTokenizer>()?;
     m.add_class::<CharTokenizer>()?;
     m.add_class::<CharBPETokenizer>()?;
+    m.add_class::<ByteBPETokenizer>()?;
     m.add_function(wrap_pyfunction!(utils::atomwise_tokenize_py, m)?)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add(
@@ -52,6 +56,7 @@ fn rustmolbpe(m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
             "AtomTokenizer",
             "CharTokenizer",
             "CharBPETokenizer",
+            "ByteBPETokenizer",
             "atomwise_tokenize",
             "__version__",
         ],

@@ -463,6 +463,10 @@ class SmilesTokenizer(_BaseTokenizer):
         >>> smiles = tokenizer.decode(ids)
     """
 
+# AtomBPETokenizer is an exact alias of SmilesTokenizer (atom-level BPE, "SPE").
+# Both names bind to the same class object: ``AtomBPETokenizer is SmilesTokenizer``.
+AtomBPETokenizer = SmilesTokenizer
+
 class ByteBPETokenizer(_BaseTokenizer):
     """Byte-level BPE tokenizer.
 

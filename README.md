@@ -100,6 +100,10 @@ compare their behavior:
 | `SmilesTokenizer`  | atom (regex)      | yes           | BPE merges learned on top of atom splitting ("SPE")      |
 | `ByteBPETokenizer` | byte (UTF-8)      | yes           | BPE merges on raw bytes; never emits `<unk>`, lossless round-trip |
 
+> `SmilesTokenizer` is also exported as **`AtomBPETokenizer`** — an exact alias
+> of the same class (`AtomBPETokenizer is SmilesTokenizer`), named to match the
+> `CharBPETokenizer` / `ByteBPETokenizer` pattern.
+
 ```python
 import rustmolbpe
 
@@ -235,6 +239,8 @@ tokens = rustmolbpe.atomwise_tokenize("c1ccccc1")
 ## API Reference
 
 ### SmilesTokenizer
+
+Also available as `AtomBPETokenizer` — an exact alias of this class.
 
 ```python
 class SmilesTokenizer:

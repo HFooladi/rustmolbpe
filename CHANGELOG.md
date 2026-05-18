@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SMILESPE and HuggingFace file I/O are not supported (those formats store
   chemically-readable tokens, not raw bytes); use `pickle` to persist a
   byte-level tokenizer.
+- `AtomBPETokenizer` — an exact alias of `SmilesTokenizer` (both names bind to
+  the same class object, so `AtomBPETokenizer is SmilesTokenizer`). The alias
+  name matches the `CharBPETokenizer` / `ByteBPETokenizer` pattern and makes the
+  atom-level BPE granularity explicit. `SmilesTokenizer` remains the canonical
+  name; nothing is deprecated.
 
 ## [0.3.0] - 2026-05-17
 

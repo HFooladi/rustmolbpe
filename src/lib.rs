@@ -47,12 +47,15 @@ fn rustmolbpe(m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<CharTokenizer>()?;
     m.add_class::<CharBPETokenizer>()?;
     m.add_class::<ByteBPETokenizer>()?;
+    // AtomBPETokenizer is an exact alias of SmilesTokenizer (atom-level BPE, "SPE").
+    m.add("AtomBPETokenizer", m.getattr("SmilesTokenizer")?)?;
     m.add_function(wrap_pyfunction!(utils::atomwise_tokenize_py, m)?)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add(
         "__all__",
         vec![
             "SmilesTokenizer",
+            "AtomBPETokenizer",
             "AtomTokenizer",
             "CharTokenizer",
             "CharBPETokenizer",

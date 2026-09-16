@@ -7,7 +7,7 @@ Thank you for your interest in contributing to rustmolbpe! This document provide
 ### Prerequisites
 
 - [Rust](https://rustup.rs/) (stable toolchain)
-- Python 3.9+
+- Python 3.10+
 - [maturin](https://github.com/PyO3/maturin) for building Python bindings
 
 ### Setting Up the Development Environment

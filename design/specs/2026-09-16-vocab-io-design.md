@@ -95,7 +95,8 @@ Measured on `main` at `87d8479`:
     - `pretokenizer` does not match the class (same rule as pickle);
     - `merges` is non-empty for `CharTokenizer` / `AtomTokenizer`;
     - `vocab[0..4]` is not `<pad>`, `<unk>`, `<bos>`, `<eos>`;
-    - any merge ID is out of range, or `vocab[merged] != vocab[left] + vocab[right]`.
+    - any merge ID is out of range, or `vocab[merged] != vocab[left] + vocab[right]`;
+    - the same `(left, right)` pair appears in more than one merge (`save` never writes duplicates).
 - A file with no merges loads into any class of matching granularity, including
   a BPE class. The result is an untrained tokenizer with that base vocabulary,
   the same state as saving an untrained BPE tokenizer.

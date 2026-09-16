@@ -9,9 +9,13 @@ This document outlines the planned improvements and future direction for rustmol
 
 ---
 
-## Completed (v0.1.0 – v0.3.0)
+## Completed (v0.1.0 – v0.4.0)
 
 Work already shipped. Kept here for context; see [CHANGELOG.md](CHANGELOG.md) for the per-release detail.
+
+### v0.4.0 — Byte-level BPE
+- [x] 🟡 `ByteBPETokenizer` — byte-level BPE; fixed 256-symbol base alphabet, lossless round-trip, never emits `<unk>`
+- [x] 🟢 `AtomBPETokenizer` — exact alias of `SmilesTokenizer`, matching the `CharBPETokenizer` / `ByteBPETokenizer` naming
 
 ### v0.3.0 — Tokenizer ladder & interop
 - [x] 🔴 Four-tokenizer ladder sharing one `TokenizerCore` — `CharTokenizer`, `AtomTokenizer`, `CharBPETokenizer`, `SmilesTokenizer`
@@ -34,7 +38,7 @@ Work already shipped. Kept here for context; see [CHANGELOG.md](CHANGELOG.md) fo
 
 ---
 
-## v0.4.0 — ML Framework Integration
+## v0.5.0 — ML Framework Integration
 
 **Current priority.** Make the tokenizer drop-in for ML training pipelines so users don't hand-roll glue code.
 
@@ -46,13 +50,12 @@ Work already shipped. Kept here for context; see [CHANGELOG.md](CHANGELOG.md) fo
 - [ ] 🟡 Integration guide for the `transformers` library (using `__call__` + `save_huggingface`)
 
 ### Tokenizer ladder extensions
-- [x] 🟡 `ByteBPETokenizer` — byte-level BPE; fixed 256-symbol base alphabet, lossless round-trip, never emits `<unk>`
 - [ ] 🔴 Unigram LM tokenizer — probabilistic segmentation (EM training + Viterbi decoding), the one tokenization family not yet covered
 - [ ] 🟡 HuggingFace export for `ByteBPETokenizer` (byte-level BPE → HF `ByteLevel` pre-tokenizer + `BPE` model)
 
 ---
 
-## v0.5.0 — Custom Special Tokens & Performance
+## v0.6.0 — Custom Special Tokens & Performance
 
 Flexibility for non-default vocabularies, plus the lower-risk performance wins.
 
@@ -69,7 +72,7 @@ Flexibility for non-default vocabularies, plus the lower-risk performance wins.
 
 ---
 
-## v0.6.0 — Vocabulary & Serialization
+## v0.7.0 — Vocabulary & Serialization
 
 Make vocabularies inspectable, verifiable, and composable.
 
@@ -134,7 +137,8 @@ Major features and stabilization for production readiness.
 
 ## Infrastructure (ongoing)
 
-- [ ] 🟡 Prebuilt cross-platform binary wheels in CI (manylinux / macOS / Windows; `abi3` to cut the build matrix)
+- [x] 🟡 Prebuilt cross-platform binary wheels in CI (manylinux / macOS / Windows)
+- [ ] 🟢 `abi3` wheels to cut the build matrix
 - [ ] 🟡 conda-forge package
 - [ ] 🟡 Git LFS for large data files (vocabularies, training data)
 - [ ] 🟡 Docker development environment
@@ -177,4 +181,4 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 ---
 
-*Last updated: May 2026*
+*Last updated: September 2026*

@@ -2,7 +2,7 @@
 
 A high-performance BPE (Byte Pair Encoding) tokenizer for molecular SMILES written in Rust with Python bindings.
 
-**Current version: 0.2.0**
+**Current version: 0.4.0**
 
 ## Features
 

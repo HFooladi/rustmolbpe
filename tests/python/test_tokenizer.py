@@ -227,11 +227,53 @@ class TestTrainingOptions:
         tokenizer.train_from_iterator(iter(smiles), vocab_size=20)
         assert tokenizer.vocab_size <= 20
 
-    def test_min_frequency_parameter(self, tokenizer):
-        # With high min_frequency, should have fewer merges
-        smiles = ["CCO"] + ["CCC"] * 100
-        tokenizer.train_from_iterator(iter(smiles), vocab_size=100, min_frequency=50)
-        # "CCO" appears only once, so its patterns shouldn't be merged
+
+def _bpe_tokenizer_classes():
+    import rustmolbpe
+    return [
+        rustmolbpe.CharBPETokenizer,
+        rustmolbpe.SmilesTokenizer,
+        rustmolbpe.ByteBPETokenizer,
+    ]
+
+
+@pytest.mark.parametrize("cls", _bpe_tokenizer_classes(), ids=lambda c: c.__name__)
+class TestMinFrequency:
+    """min_frequency is a threshold on pair counts, not on SMILES counts.
+
+    Expected merges are derived by hand from pair counts. vocab_size=300 leaves
+    room for more merges than these corpora can yield (ByteBPE's base vocabulary
+    is 260), so min_frequency is what stops training.
+    """
+
+    def test_default_learns_merges_from_unique_smiles(self, cls):
+        """Deduplicated data still yields merges with the default min_frequency=2.
+
+        Every SMILES occurs once, but the pair (C, C) occurs 3 times across them;
+        each (CC, x) pair left after that merge occurs only once.
+        """
+        tok = cls()
+        tok.train_from_iterator(iter(["CCO", "CCN", "CCS"]), vocab_size=300)
+        assert tok.get_merges() == [("C", "C", "CC")]
+
+    @pytest.mark.parametrize(
+        "min_frequency, expected",
+        [
+            # (C, C) occurs twice per "CCC" -> 4; after merging, (CC, C) -> 2.
+            (1, [("C", "C", "CC"), ("CC", "C", "CCC")]),
+            (2, [("C", "C", "CC"), ("CC", "C", "CCC")]),
+            (3, [("C", "C", "CC")]),
+            (4, [("C", "C", "CC")]),
+            (5, []),
+        ],
+    )
+    def test_threshold_applies_to_pair_counts(self, cls, min_frequency, expected):
+        """A pair is merged only while its current count is >= min_frequency."""
+        tok = cls()
+        tok.train_from_iterator(
+            iter(["CCC", "CCC"]), vocab_size=300, min_frequency=min_frequency
+        )
+        assert tok.get_merges() == expected
 
 
 @pytest.mark.slow
@@ -1158,7 +1200,7 @@ class TestByteBPETokenizer:
     def _trained(self, vocab_size=320, min_frequency=1):
         import rustmolbpe
         tok = rustmolbpe.ByteBPETokenizer()
-        # min_frequency=1 so merges are actually learned on this tiny corpus.
+        # min_frequency=1 so every pair in this tiny corpus is eligible to merge.
         tok.train_from_iterator(
             iter(self.TRAIN), vocab_size=vocab_size, min_frequency=min_frequency
         )

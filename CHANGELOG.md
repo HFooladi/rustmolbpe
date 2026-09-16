@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `min_frequency` in `train_from_iterator` is now a threshold on pair counts,
+  as documented: a pair is merged only if it occurs at least `min_frequency`
+  times across the corpus, and training stops once no remaining pair does.
+  Previously it discarded every SMILES string occurring fewer than
+  `min_frequency` times before training, so with the default of 2 a
+  deduplicated dataset (such as ChEMBL) silently learned **no merges**.
+  Training with `min_frequency=1` is unchanged; tokenizers trained with a
+  higher value will now learn different (and more) merges.
+
 ### Changed
 
 - Python 3.14 is now tested in CI and listed in the package classifiers

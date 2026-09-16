@@ -501,6 +501,45 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tokenizer-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tokenizer File
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tokenizer File">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#save" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        save
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_file
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#huggingface-interop" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -975,6 +1014,45 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tokenizer-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tokenizer File
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tokenizer File">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#save" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        save
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        from_file
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#huggingface-interop" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1391,7 +1469,7 @@ object — <code>rustmolbpe.AtomBPETokenizer is rustmolbpe.SmilesTokenizer</code
 <li><strong><code>ByteBPETokenizer</code></strong>: the base alphabet is always the 256 byte values
   (<code>base_vocab_size == 260</code> once trained). <code>load_vocabulary</code>, <code>save_vocabulary</code>,
   <code>save_huggingface</code> and <code>from_huggingface</code> raise <code>NotImplementedError</code>; use
-  pickle to persist it.</li>
+  <a href="#tokenizer-file"><code>save</code> / <code>from_file</code></a> to persist it.</li>
 <li><strong><code>SmilesTokenizer</code></strong>: <code>save_huggingface</code> raises <code>NotImplementedError</code>
   (atom-level BPE cannot be expressed as a stock HuggingFace fast tokenizer).</li>
 </ul>
@@ -1476,6 +1554,10 @@ raises <code>ValueError</code>.</p>
 </code></pre></div>
 <p>Load vocabulary from a SMILESPE-format file. Supported by <code>CharBPETokenizer</code>
 and <code>SmilesTokenizer</code>.</p>
+<p>The SMILESPE format stores merge rules only, in priority order. Loading assigns
+token IDs that generally differ from the tokenizer that saved the file, and base
+tokens that never took part in a merge are not included. Use
+<a href="#tokenizer-file"><code>save</code> / <code>from_file</code></a> to persist a tokenizer with identical IDs.</p>
 <p><strong>Arguments:</strong></p>
 <ul>
 <li><code>path</code> (str): Path to vocabulary file</li>
@@ -1490,6 +1572,9 @@ and <code>SmilesTokenizer</code>.</p>
 </code></pre></div>
 <p>Save vocabulary to a SMILESPE-format file. Supported by <code>CharBPETokenizer</code>
 and <code>SmilesTokenizer</code>.</p>
+<p>The file stores merge rules only, in priority order. Token IDs, and base
+tokens that never took part in a merge, are not stored; use
+<a href="#tokenizer-file"><code>save</code> / <code>from_file</code></a> to persist a tokenizer with identical IDs.</p>
 <p><strong>Arguments:</strong></p>
 <ul>
 <li><code>path</code> (str): Path to save vocabulary file</li>
@@ -1500,9 +1585,60 @@ and <code>SmilesTokenizer</code>.</p>
 <li><code>NotImplementedError</code>: For <code>CharTokenizer</code>, <code>AtomTokenizer</code> and <code>ByteBPETokenizer</code></li>
 </ul>
 <hr />
+<h3 id="tokenizer-file">Tokenizer File<a class="headerlink" href="#tokenizer-file" title="Permanent link">&para;</a></h3>
+<h4 id="save">save<a class="headerlink" href="#save" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+<p>Save the complete tokenizer to a lossless JSON file: the full vocabulary with its
+token IDs, the merges in priority order, and the pre-tokenizer granularity.
+Supported by every tokenizer class. Prefer this over <code>save_vocabulary</code> to persist
+a tokenizer used by a trained model.</p>
+<p><strong>Arguments:</strong></p>
+<ul>
+<li><code>path</code> (str): Path to write the JSON file</li>
+</ul>
+<p><strong>Raises:</strong></p>
+<ul>
+<li><code>IOError</code>: If the file cannot be written</li>
+</ul>
+<h4 id="from_file">from_file<a class="headerlink" href="#from_file" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span>
+</code></pre></div>
+<p>Load a tokenizer saved with <code>save</code>. Token IDs, merges and encodings are identical
+to the saved tokenizer.</p>
+<p><strong>Arguments:</strong></p>
+<ul>
+<li><code>path</code> (str): Path to a file written by <code>save</code></li>
+</ul>
+<p><strong>Raises:</strong></p>
+<ul>
+<li><code>IOError</code>: If the file cannot be read</li>
+<li><code>ValueError</code>: If the file is not a valid rustmolbpe tokenizer file, has an unsupported version, was saved by a tokenizer of a different granularity, or contains merges and the calling class learns none</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"smiles_tokenizer.json"</span><span class="p">)</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">restored</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"smiles_tokenizer.json"</span><span class="p">)</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">get_vocabulary</span><span class="p">()</span> <span class="o">==</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">get_vocabulary</span><span class="p">()</span>
+</code></pre></div>
+<p><strong>File layout</strong> (JSON):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rustmolbpe"</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">"pretokenizer"</span><span class="p">:</span><span class="w"> </span><span class="s2">"atom"</span><span class="p">,</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span><span class="nt">"vocab"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"&lt;pad&gt;"</span><span class="p">,</span><span class="w"> </span><span class="s2">"&lt;unk&gt;"</span><span class="p">,</span><span class="w"> </span><span class="s2">"&lt;bos&gt;"</span><span class="p">,</span><span class="w"> </span><span class="s2">"&lt;eos&gt;"</span><span class="p">,</span><span class="w"> </span><span class="s2">"c"</span><span class="p">,</span><span class="w"> </span><span class="s2">"C"</span><span class="p">,</span><span class="w"> </span><span class="s2">"..."</span><span class="p">],</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span><span class="nt">"merges"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">57</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">58</span><span class="p">]]</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>vocab</code> lists token strings (the index is the token ID); <code>merges</code> lists
+<code>[left_id, right_id, merged_id]</code> in priority order; <code>pretokenizer</code> is <code>atom</code>,
+<code>char</code> or <code>byte</code>.</p>
+<p>Readers ignore keys they do not recognize, so later releases can add optional
+fields; an incompatible change increments <code>version</code>.</p>
+<hr />
 <h3 id="huggingface-interop">HuggingFace Interop<a class="headerlink" href="#huggingface-interop" title="Permanent link">&para;</a></h3>
 <h4 id="save_huggingface">save_huggingface<a class="headerlink" href="#save_huggingface" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_huggingface</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_huggingface</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 <p>Export the tokenizer to a HuggingFace <code>tokenizers</code> JSON file, loadable by
 <code>transformers.PreTrainedTokenizerFast(tokenizer_file=...)</code> and the <code>tokenizers</code>
@@ -1550,8 +1686,8 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>NotImplementedError</code>: For <code>SmilesTokenizer</code> and <code>ByteBPETokenizer</code></li>
 </ul>
 <h4 id="from_huggingface">from_huggingface<a class="headerlink" href="#from_huggingface" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_huggingface</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_huggingface</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span>
 </code></pre></div>
 <p>Load a tokenizer from a HuggingFace <code>tokenizers</code> JSON file written by
 <code>save_huggingface</code> (or a compatible character-level <code>BPE</code> / atom-level
@@ -1571,17 +1707,17 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>NotImplementedError</code>: For <code>ByteBPETokenizer</code></li>
 </ul>
 <p><strong>Example:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">tok</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">CharBPETokenizer</span><span class="p">()</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">tok</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span><span class="n">smiles_generator</span><span class="p">(</span><span class="s2">"molecules.smi"</span><span class="p">),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">tok</span><span class="o">.</span><span class="n">save_huggingface</span><span class="p">(</span><span class="s2">"tokenizer.json"</span><span class="p">)</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">restored</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">CharBPETokenizer</span><span class="o">.</span><span class="n">from_huggingface</span><span class="p">(</span><span class="s2">"tokenizer.json"</span><span class="p">)</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">rustmolbpe</span><span class="o">.</span><span class="n">AtomTokenizer</span><span class="o">.</span><span class="n">from_huggingface</span><span class="p">(</span><span class="s2">"tokenizer.json"</span><span class="p">)</span>  <span class="c1"># ValueError</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">tok</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">CharBPETokenizer</span><span class="p">()</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">tok</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span><span class="n">smiles_generator</span><span class="p">(</span><span class="s2">"molecules.smi"</span><span class="p">),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">tok</span><span class="o">.</span><span class="n">save_huggingface</span><span class="p">(</span><span class="s2">"tokenizer.json"</span><span class="p">)</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">restored</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">CharBPETokenizer</span><span class="o">.</span><span class="n">from_huggingface</span><span class="p">(</span><span class="s2">"tokenizer.json"</span><span class="p">)</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="n">rustmolbpe</span><span class="o">.</span><span class="n">AtomTokenizer</span><span class="o">.</span><span class="n">from_huggingface</span><span class="p">(</span><span class="s2">"tokenizer.json"</span><span class="p">)</span>  <span class="c1"># ValueError</span>
 </code></pre></div>
 <hr />
 <h3 id="encoding-methods">Encoding Methods<a class="headerlink" href="#encoding-methods" title="Permanent link">&para;</a></h3>
 <h4 id="encode">encode<a class="headerlink" href="#encode" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">encode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">smiles</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">add_special_tokens</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">encode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">smiles</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">add_special_tokens</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
 </code></pre></div>
 <p>Encode a SMILES string to token IDs.</p>
 <p><strong>Arguments:</strong></p>
@@ -1594,15 +1730,15 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>List[int]</code>: List of token IDs</li>
 </ul>
 <p><strong>Example</strong> (with <code>data/chembl36_vocab.txt</code> loaded):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">ids</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"CCO"</span><span class="p">)</span>  <span class="c1"># [353]</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">ids</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="n">add_special_tokens</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># [2, 353, 3]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">ids</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"CCO"</span><span class="p">)</span>  <span class="c1"># [353]</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">ids</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="n">add_special_tokens</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># [2, 353, 3]</span>
 </code></pre></div>
 <h4 id="batch_encode">batch_encode<a class="headerlink" href="#batch_encode" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">batch_encode</span><span class="p">(</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="n">smiles_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">add_special_tokens</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">batch_encode</span><span class="p">(</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="n">smiles_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="n">add_special_tokens</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span>
 </code></pre></div>
 <p>Encode multiple SMILES strings in parallel.</p>
 <p><strong>Arguments:</strong></p>
@@ -1615,15 +1751,15 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>List[List[int]]</code>: List of token ID lists</li>
 </ul>
 <h4 id="__call__">__call__<a class="headerlink" href="#__call__" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="n">padding</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="n">truncation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">max_length</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">add_special_tokens</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="n">return_attention_mask</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="n">padding</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="n">truncation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>    <span class="n">max_length</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="n">add_special_tokens</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    <span class="n">return_attention_mask</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
 </code></pre></div>
 <p>Encode one or more SMILES strings with a HuggingFace-style call interface.</p>
 <p><strong>Arguments:</strong></p>
@@ -1640,16 +1776,16 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>Dict[str, Any]</code>: <code>"input_ids"</code> and optionally <code>"attention_mask"</code> — flat lists for a single string, nested lists for a list input</li>
 </ul>
 <p><strong>Example</strong> (with <code>data/chembl36_vocab.txt</code> loaded):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">tokenizer</span><span class="p">(</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="n">add_special_tokens</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="c1"># {'input_ids': [2, 353, 3], 'attention_mask': [1, 1, 1]}</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">tokenizer</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"c1ccccc1C"</span><span class="p">],</span> <span class="n">padding</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1"># {'input_ids': [[353, 0], [782, 155]], 'attention_mask': [[1, 0], [1, 1]]}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">tokenizer</span><span class="p">(</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="n">add_special_tokens</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="c1"># {'input_ids': [2, 353, 3], 'attention_mask': [1, 1, 1]}</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="n">tokenizer</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"c1ccccc1C"</span><span class="p">],</span> <span class="n">padding</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="c1"># {'input_ids': [[353, 0], [782, 155]], 'attention_mask': [[1, 0], [1, 1]]}</span>
 </code></pre></div>
 <hr />
 <h3 id="decoding-methods">Decoding Methods<a class="headerlink" href="#decoding-methods" title="Permanent link">&para;</a></h3>
 <h4 id="decode">decode<a class="headerlink" href="#decode" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">decode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">decode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </code></pre></div>
 <p>Decode token IDs back to a SMILES string.</p>
 <p><strong>Arguments:</strong></p>
@@ -1665,7 +1801,7 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>ValueError</code>: If an ID is not in vocabulary</li>
 </ul>
 <h4 id="batch_decode">batch_decode<a class="headerlink" href="#batch_decode" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">batch_decode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">batch_decode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
 </code></pre></div>
 <p>Decode multiple token sequences in parallel.</p>
 <p><strong>Arguments:</strong></p>
@@ -1679,14 +1815,14 @@ exactly but individual token sequences may occasionally differ.</p>
 <hr />
 <h3 id="padding-methods">Padding Methods<a class="headerlink" href="#padding-methods" title="Permanent link">&para;</a></h3>
 <h4 id="pad">pad<a class="headerlink" href="#pad" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">pad</span><span class="p">(</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="n">sequences</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="n">max_length</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="n">padding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"right"</span><span class="p">,</span>
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>    <span class="n">truncation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="n">return_attention_mask</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">pad</span><span class="p">(</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>    <span class="n">sequences</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    <span class="n">max_length</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    <span class="n">padding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"right"</span><span class="p">,</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="n">truncation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>    <span class="n">return_attention_mask</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span>
 </code></pre></div>
 <p>Pad sequences to equal length.</p>
 <p><strong>Arguments:</strong></p>
@@ -1706,15 +1842,15 @@ exactly but individual token sequences may occasionally differ.</p>
 </li>
 </ul>
 <h4 id="encode_batch_padded">encode_batch_padded<a class="headerlink" href="#encode_batch_padded" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">encode_batch_padded</span><span class="p">(</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="n">smiles_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="n">max_length</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="n">padding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"right"</span><span class="p">,</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="n">truncation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    <span class="n">add_special_tokens</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>    <span class="n">return_attention_mask</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">encode_batch_padded</span><span class="p">(</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>    <span class="n">smiles_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    <span class="n">max_length</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>    <span class="n">padding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"right"</span><span class="p">,</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>    <span class="n">truncation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>    <span class="n">add_special_tokens</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>    <span class="n">return_attention_mask</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span>
 </code></pre></div>
 <p>Encode multiple SMILES and pad to equal length.</p>
 <p>Convenience method combining <code>batch_encode</code> and <code>pad</code>.</p>
@@ -1732,18 +1868,18 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>Dict[str, List[List[int]]]</code>: Dictionary with "input_ids" and optionally "attention_mask"</li>
 </ul>
 <p><strong>Example</strong> (with <code>data/chembl36_vocab.txt</code> loaded):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode_batch_padded</span><span class="p">(</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="p">[</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"c1ccccc1"</span><span class="p">],</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="n">max_length</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="n">add_special_tokens</span><span class="o">=</span><span class="kc">True</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="p">)</span>
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">])</span>       <span class="c1"># [[2, 353, 3, 0, 0, 0], [2, 782, 3, 0, 0, 0]]</span>
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">])</span>  <span class="c1"># [[1, 1, 1, 0, 0, 0], [1, 1, 1, 0, 0, 0]]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode_batch_padded</span><span class="p">(</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>    <span class="p">[</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"c1ccccc1"</span><span class="p">],</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>    <span class="n">max_length</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>    <span class="n">add_special_tokens</span><span class="o">=</span><span class="kc">True</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="p">)</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">])</span>       <span class="c1"># [[2, 353, 3, 0, 0, 0], [2, 782, 3, 0, 0, 0]]</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">])</span>  <span class="c1"># [[1, 1, 1, 0, 0, 0], [1, 1, 1, 0, 0, 0]]</span>
 </code></pre></div>
 <hr />
 <h3 id="vocabulary-access">Vocabulary Access<a class="headerlink" href="#vocabulary-access" title="Permanent link">&para;</a></h3>
 <h4 id="get_vocabulary">get_vocabulary<a class="headerlink" href="#get_vocabulary" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_vocabulary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_vocabulary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
 </code></pre></div>
 <p>Get vocabulary as (token, id) pairs.</p>
 <p><strong>Returns:</strong></p>
@@ -1751,7 +1887,7 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>List[Tuple[str, int]]</code>: List of (token_string, token_id) tuples</li>
 </ul>
 <h4 id="id_to_token">id_to_token<a class="headerlink" href="#id_to_token" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">id_to_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">id_to_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </code></pre></div>
 <p>Convert token ID to token string.</p>
 <p><strong>Arguments:</strong></p>
@@ -1767,7 +1903,7 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>ValueError</code>: If ID is not in vocabulary</li>
 </ul>
 <h4 id="token_to_id">token_to_id<a class="headerlink" href="#token_to_id" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">token_to_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">token_to_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span>
 </code></pre></div>
 <p>Convert token string to token ID.</p>
 <p><strong>Arguments:</strong></p>
@@ -1853,7 +1989,7 @@ exactly but individual token sequences may occasionally differ.</p>
 <hr />
 <h3 id="state-inspection">State Inspection<a class="headerlink" href="#state-inspection" title="Permanent link">&para;</a></h3>
 <h4 id="is_trained">is_trained<a class="headerlink" href="#is_trained" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_trained</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_trained</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
 </code></pre></div>
 <p>Check whether the tokenizer has learned (or loaded) BPE merges. Always False for
 <code>CharTokenizer</code> and <code>AtomTokenizer</code>; use <code>has_vocabulary</code> for those.</p>
@@ -1862,14 +1998,14 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>bool</code>: True if the tokenizer has merge rules, False otherwise</li>
 </ul>
 <p><strong>Example:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="p">()</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">is_trained</span><span class="p">())</span>  <span class="c1"># False</span>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span><span class="nb">iter</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"CCC"</span><span class="p">]),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
-<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">is_trained</span><span class="p">())</span>  <span class="c1"># True</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="p">()</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">is_trained</span><span class="p">())</span>  <span class="c1"># False</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span><span class="nb">iter</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"CCC"</span><span class="p">]),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">is_trained</span><span class="p">())</span>  <span class="c1"># True</span>
 </code></pre></div>
 <h4 id="has_vocabulary">has_vocabulary<a class="headerlink" href="#has_vocabulary" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">has_vocabulary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">has_vocabulary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
 </code></pre></div>
 <p>Check whether a base vocabulary has been built.</p>
 <p><strong>Returns:</strong></p>
@@ -1877,13 +2013,13 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>bool</code>: True if the vocabulary contains tokens beyond the 4 special tokens</li>
 </ul>
 <p><strong>Example:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">AtomTokenizer</span><span class="p">()</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span><span class="nb">iter</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"CCl"</span><span class="p">]),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">has_vocabulary</span><span class="p">())</span>  <span class="c1"># True</span>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">is_trained</span><span class="p">())</span>      <span class="c1"># False (no merges)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">AtomTokenizer</span><span class="p">()</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span><span class="nb">iter</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"CCl"</span><span class="p">]),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">has_vocabulary</span><span class="p">())</span>  <span class="c1"># True</span>
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">is_trained</span><span class="p">())</span>      <span class="c1"># False (no merges)</span>
 </code></pre></div>
 <h4 id="get_merges">get_merges<a class="headerlink" href="#get_merges" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_merges</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_merges</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span>
 </code></pre></div>
 <p>Get the learned merge rules as tuples.</p>
 <p><strong>Returns:</strong></p>
@@ -1891,46 +2027,48 @@ exactly but individual token sequences may occasionally differ.</p>
 <li><code>List[Tuple[str, str, str]]</code>: List of (left_token, right_token, merged_token) tuples, ordered by merge priority. Empty for <code>CharTokenizer</code> and <code>AtomTokenizer</code></li>
 </ul>
 <p><strong>Example:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="p">()</span>
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span><span class="nb">iter</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"CCN"</span><span class="p">,</span> <span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"c1ccccc1"</span><span class="p">]),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
-<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
-<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="n">merges</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">get_merges</span><span class="p">()</span>
-<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">merges</span><span class="p">[:</span><span class="mi">3</span><span class="p">])</span>  <span class="c1"># First 3 merge rules</span>
-<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="c1"># [('c', 'c', 'cc'), ('C', 'C', 'CC'), ('c', '1', 'c1')]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="p">()</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span><span class="nb">iter</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"CCN"</span><span class="p">,</span> <span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"c1ccccc1"</span><span class="p">]),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="n">merges</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">get_merges</span><span class="p">()</span>
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">merges</span><span class="p">[:</span><span class="mi">3</span><span class="p">])</span>  <span class="c1"># First 3 merge rules</span>
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a><span class="c1"># [('c', 'c', 'cc'), ('C', 'C', 'CC'), ('c', '1', 'c1')]</span>
 </code></pre></div>
 <hr />
 <h3 id="serialization">Serialization<a class="headerlink" href="#serialization" title="Permanent link">&para;</a></h3>
 <h4 id="pickle-support">Pickle Support<a class="headerlink" href="#pickle-support" title="Permanent link">&para;</a></h4>
-<p>Every tokenizer class supports Python's pickle protocol. Pickle is the only way
-to persist a <code>ByteBPETokenizer</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>
-<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="p">()</span>
-<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">load_vocabulary</span><span class="p">(</span><span class="s2">"data/chembl36_vocab.txt"</span><span class="p">)</span>
-<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>
-<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="c1"># Save to bytes</span>
-<a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">)</span>
-<a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a>
-<a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a><span class="c1"># Restore from bytes</span>
-<a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a><span class="n">restored</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-<a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a>
-<a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a><span class="c1"># Verify</span>
-<a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a><span class="k">assert</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"CCO"</span><span class="p">)</span> <span class="o">==</span> <span class="n">restored</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"CCO"</span><span class="p">)</span>
+<p>Every tokenizer class supports Python's pickle protocol, which multiprocessing
+also relies on. To store a tokenizer on disk, prefer
+<a href="#tokenizer-file"><code>save</code> / <code>from_file</code></a>: the file is readable JSON and, unlike a
+pickle, safe to load from an untrusted source.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="p">()</span>
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">load_vocabulary</span><span class="p">(</span><span class="s2">"data/chembl36_vocab.txt"</span><span class="p">)</span>
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a>
+<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a><span class="c1"># Save to bytes</span>
+<a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">)</span>
+<a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a>
+<a id="__codelineno-33-9" name="__codelineno-33-9" href="#__codelineno-33-9"></a><span class="c1"># Restore from bytes</span>
+<a id="__codelineno-33-10" name="__codelineno-33-10" href="#__codelineno-33-10"></a><span class="n">restored</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-33-11" name="__codelineno-33-11" href="#__codelineno-33-11"></a>
+<a id="__codelineno-33-12" name="__codelineno-33-12" href="#__codelineno-33-12"></a><span class="c1"># Verify</span>
+<a id="__codelineno-33-13" name="__codelineno-33-13" href="#__codelineno-33-13"></a><span class="k">assert</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"CCO"</span><span class="p">)</span> <span class="o">==</span> <span class="n">restored</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"CCO"</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>Multiprocessing Example:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">multiprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pool</span>
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">rustmolbpe</span>
-<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>
-<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">encode_smiles</span><span class="p">(</span><span class="n">smiles</span><span class="p">):</span>
-<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>    <span class="c1"># tokenizer is pickled and sent to worker processes</span>
-<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>    <span class="k">return</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">smiles</span><span class="p">)</span>
-<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>
-<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="p">()</span>
-<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">load_vocabulary</span><span class="p">(</span><span class="s2">"data/chembl36_vocab.txt"</span><span class="p">)</span>
-<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>
-<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a><span class="n">smiles_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"c1ccccc1"</span><span class="p">,</span> <span class="s2">"CC(=O)O"</span><span class="p">]</span>
-<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a><span class="k">with</span> <span class="n">Pool</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
-<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a>    <span class="n">results</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">encode_smiles</span><span class="p">,</span> <span class="n">smiles_list</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">multiprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pool</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">rustmolbpe</span>
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>
+<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">encode_smiles</span><span class="p">(</span><span class="n">smiles</span><span class="p">):</span>
+<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>    <span class="c1"># tokenizer is pickled and sent to worker processes</span>
+<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a>    <span class="k">return</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">smiles</span><span class="p">)</span>
+<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a>
+<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="p">()</span>
+<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">load_vocabulary</span><span class="p">(</span><span class="s2">"data/chembl36_vocab.txt"</span><span class="p">)</span>
+<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a>
+<a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a><span class="n">smiles_list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"c1ccccc1"</span><span class="p">,</span> <span class="s2">"CC(=O)O"</span><span class="p">]</span>
+<a id="__codelineno-34-12" name="__codelineno-34-12" href="#__codelineno-34-12"></a><span class="k">with</span> <span class="n">Pool</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+<a id="__codelineno-34-13" name="__codelineno-34-13" href="#__codelineno-34-13"></a>    <span class="n">results</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">encode_smiles</span><span class="p">,</span> <span class="n">smiles_list</span><span class="p">)</span>
 </code></pre></div>
 
 

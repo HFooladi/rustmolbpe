@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compute token-count statistics for the four rustmolbpe tokenizers.
+"""Compute token-count statistics for the five rustmolbpe tokenizers.
 
 Runs every tokenizer over the ChEMBL 36 reference dataset and reports, per
 tokenizer, the distribution of the number of tokens per molecule (mean, median,
@@ -10,11 +10,18 @@ Tokenizers compared:
     - AtomTokenizer    : atom-level regex split (no merges)
     - CharBPETokenizer : BPE on characters, swept over several vocab sizes
     - SmilesTokenizer  : BPE on atoms ("SPE"), swept over several vocab sizes
+    - ByteBPETokenizer : BPE on UTF-8 bytes, swept over several vocab sizes
 
-The BPE tokenizers are trained once per vocab size and their vocabularies are
-cached under ``data/`` so subsequent runs are fast. The character-level and
+The BPE tokenizers are trained once per vocab size and cached under ``data/``
+so subsequent runs are fast: CharBPE and SPE as SMILESPE vocabulary files,
+ByteBPE as a pickle (it has no vocabulary-file format). The character-level and
 atom-level tokenizers need no training: with no merges, the token count of a
 molecule is simply its number of characters / atoms.
+
+Note that ``vocab_size`` includes the base alphabet, and ByteBPE's base alphabet
+is always all 256 byte values. At the same ``vocab_size`` it therefore learns
+fewer merges than CharBPE, whose base alphabet is only the characters seen in
+the data; the ``num_merges`` column makes this explicit.
 
 Requires the optional ``stats`` dependencies: ``pip install rustmolbpe[stats]``
 (numpy and matplotlib).
@@ -28,6 +35,7 @@ Examples:
 import argparse
 import logging
 import os
+import pickle
 import time
 
 import numpy as np
@@ -114,18 +122,25 @@ def chunked(iterable, size):
 
 
 def build_bpe_tokenizer(cls, cache_path, data_file, limit, vocab_size, min_frequency):
-    """Load a cached BPE vocabulary, or train it and cache it.
+    """Load a cached BPE tokenizer, or train it and cache it.
 
-    Caching is only used for full-dataset runs (``limit is None``); a ``--limit``
-    run always trains fresh so a partial vocabulary is never mistaken for a
-    full-dataset one.
+    A ``.pkl`` cache path stores the whole tokenizer with pickle; any other path
+    stores a SMILESPE vocabulary file. Caching is only used for full-dataset runs
+    (``limit is None``); a ``--limit`` run always trains fresh so a partial
+    vocabulary is never mistaken for a full-dataset one.
     """
     use_cache = limit is None
-    tok = cls()
+    use_pickle = cache_path.endswith(".pkl")
     if use_cache and os.path.exists(cache_path):
-        logger.info("Loading cached vocabulary %s", cache_path)
+        logger.info("Loading cached tokenizer %s", cache_path)
+        if use_pickle:
+            with open(cache_path, "rb") as f:
+                return pickle.load(f)
+        tok = cls()
         tok.load_vocabulary(cache_path)
         return tok
+
+    tok = cls()
 
     logger.info(
         "Training %s (vocab_size=%d) on %s ...",
@@ -148,7 +163,11 @@ def build_bpe_tokenizer(cls, cache_path, data_file, limit, vocab_size, min_frequ
     )
     if use_cache:
         os.makedirs(os.path.dirname(cache_path) or ".", exist_ok=True)
-        tok.save_vocabulary(cache_path)
+        if use_pickle:
+            with open(cache_path, "wb") as f:
+                pickle.dump(tok, f)
+        else:
+            tok.save_vocabulary(cache_path)
     return tok
 
 
@@ -188,6 +207,17 @@ def build_tokenizers(data_file, limit, vocab_sizes, min_frequency):
         )
         configs.append(("SmilesTokenizer", spe, size))
 
+    for size in vocab_sizes:
+        byte_bpe = build_bpe_tokenizer(
+            rustmolbpe.ByteBPETokenizer,
+            f"data/chembl_bytebpe_{size}.pkl",
+            data_file,
+            limit,
+            size,
+            min_frequency,
+        )
+        configs.append(("ByteBPETokenizer", byte_bpe, size))
+
     return configs
 
 
@@ -216,11 +246,12 @@ def count_tokens(configs, data_file, limit):
     return {i: np.asarray(v, dtype=np.int64) for i, v in counts.items()}
 
 
-def compute_stats(label, vocab_size, token_counts):
+def compute_stats(label, vocab_size, num_merges, token_counts):
     """Compute the statistics row for one tokenizer."""
     row = {
         "tokenizer": label,
         "vocab_size": "-" if vocab_size is None else vocab_size,
+        "num_merges": num_merges,
         "n_molecules": int(token_counts.size),
         "mean": float(np.mean(token_counts)),
         "median": float(np.median(token_counts)),
@@ -239,6 +270,7 @@ def print_table(rows):
     columns = [
         ("tokenizer", "Tokenizer", 18, "s"),
         ("vocab_size", "Vocab", 7, "s"),
+        ("num_merges", "Merges", 7, "d"),
         ("n_molecules", "N", 10, "d"),
         ("mean", "Mean", 9, ".2f"),
         ("median", "Median", 8, ".1f"),
@@ -274,6 +306,7 @@ def write_csv(rows, path):
     fieldnames = [
         "tokenizer",
         "vocab_size",
+        "num_merges",
         "n_molecules",
         "mean",
         "median",
@@ -303,15 +336,25 @@ def plot_histograms(configs, counts, rows, path):
     x_max = max(row["p99"] for row in rows)
     bins = np.linspace(0, x_max, 80)
 
+    # One color per tokenizer class and one line style per vocab size, so the
+    # 14 curves stay distinguishable (the default color cycle has only 10).
+    classes = list(dict.fromkeys(label for label, _tok, _size in configs))
+    colors = {label: f"C{i}" for i, label in enumerate(classes)}
+    sizes = sorted({size for _label, _tok, size in configs if size is not None})
+    linestyles = ["-", "--", "-.", ":"]
+
     fig, ax = plt.subplots(figsize=(11, 6))
     for i, (label, _tok, size) in enumerate(configs):
         legend = label if size is None else f"{label} (vocab={size})"
+        linestyle = "-" if size is None else linestyles[sizes.index(size) % 4]
         ax.hist(
             counts[i],
             bins=bins,
             histtype="step",
             density=True,
             linewidth=1.5,
+            color=colors[label],
+            linestyle=linestyle,
             label=legend,
         )
     ax.set_xlabel("Tokens per molecule")
@@ -345,8 +388,8 @@ def main():
     counts = count_tokens(configs, args.data_file, args.limit)
 
     rows = [
-        compute_stats(label, size, counts[i])
-        for i, (label, _tok, size) in enumerate(configs)
+        compute_stats(label, size, tok.num_merges, counts[i])
+        for i, (label, tok, size) in enumerate(configs)
     ]
 
     print_table(rows)

@@ -94,6 +94,43 @@ class _BaseTokenizer:
         """
         ...
 
+    # Lossless tokenizer file
+    def save(self, path: str) -> None:
+        """Save the complete tokenizer to a lossless JSON file.
+
+        Stores the full vocabulary with its token IDs, the merges in priority
+        order, and the pre-tokenizer granularity, so :meth:`from_file` restores
+        a tokenizer with identical IDs and encodings. Supported by every class.
+        Prefer this over :meth:`save_vocabulary` to persist a tokenizer used by
+        a trained model.
+
+        Args:
+            path: Path to write the JSON file.
+
+        Raises:
+            IOError: If the file cannot be written.
+        """
+        ...
+
+    @classmethod
+    def from_file(cls: type[_T], path: str) -> _T:
+        """Load a tokenizer saved with :meth:`save`.
+
+        Args:
+            path: Path to a file written by :meth:`save`.
+
+        Returns:
+            A new tokenizer instance of the calling class.
+
+        Raises:
+            IOError: If the file cannot be read.
+            ValueError: If the file is not a valid rustmolbpe tokenizer file,
+                has an unsupported version, was saved by a tokenizer of a
+                different granularity, or contains merges and this class
+                learns none.
+        """
+        ...
+
     # HuggingFace JSON interop
     def save_huggingface(self, path: str) -> None:
         """Export the tokenizer to a HuggingFace ``tokenizers`` JSON file.

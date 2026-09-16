@@ -1425,3 +1425,164 @@ class TestAtomBPETokenizerAlias:
                                 vocab_size=60)
         restored = pickle.loads(pickle.dumps(tok))
         assert restored.encode("CCO") == tok.encode("CCO")
+
+
+# ============================================================================
+# LOSSLESS TOKENIZER FILE (save / from_file)
+# ============================================================================
+
+def _every_tokenizer_class():
+    import rustmolbpe
+    return [
+        rustmolbpe.CharTokenizer,
+        rustmolbpe.AtomTokenizer,
+        rustmolbpe.CharBPETokenizer,
+        rustmolbpe.SmilesTokenizer,
+        rustmolbpe.ByteBPETokenizer,
+    ]
+
+
+def _trained_tokenizer(cls):
+    tok = cls()
+    # vocab_size is ignored by the no-merge classes; 300 leaves ByteBPE room
+    # above its 260-token base vocabulary.
+    tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=300, min_frequency=1)
+    return tok
+
+
+class TestTokenizerFile:
+    """save() / from_file(): lossless JSON tokenizer file for every class."""
+
+    @pytest.mark.parametrize("cls", _every_tokenizer_class(), ids=lambda c: c.__name__)
+    def test_roundtrip_is_lossless(self, cls, tmp_path):
+        tok = _trained_tokenizer(cls)
+        path = str(tmp_path / "tokenizer.json")
+        tok.save(path)
+
+        restored = cls.from_file(path)
+
+        assert type(restored) is cls
+        assert restored.get_vocabulary() == tok.get_vocabulary()
+        assert restored.get_merges() == tok.get_merges()
+        assert (restored.vocab_size, restored.base_vocab_size, restored.num_merges) == (
+            tok.vocab_size,
+            tok.base_vocab_size,
+            tok.num_merges,
+        )
+        assert restored.batch_encode(_ROUNDTRIP_SMILES) == tok.batch_encode(_ROUNDTRIP_SMILES)
+
+    def test_loaded_smilespe_vocab_keeps_ids(self, tmp_path):
+        import rustmolbpe
+        tok = rustmolbpe.SmilesTokenizer()
+        tok.load_vocabulary(_CHEMBL36_VOCAB)
+        path = str(tmp_path / "tokenizer.json")
+        tok.save(path)
+
+        restored = rustmolbpe.SmilesTokenizer.from_file(path)
+
+        assert restored.encode("CC(=O)Nc1ccc(O)cc1") == [2338, 539]
+        assert restored.get_merges()[:3] == [("c", "c", "cc"), ("C", "C", "CC"), ("O", ")", "O)")]
+
+    def test_byte_bpe_restored_tokenizer_never_emits_unk(self, tmp_path):
+        import rustmolbpe
+        tok = _trained_tokenizer(rustmolbpe.ByteBPETokenizer)
+        path = str(tmp_path / "tokenizer.json")
+        tok.save(path)
+
+        restored = rustmolbpe.ByteBPETokenizer.from_file(path)
+
+        ids = restored.encode("CéO")
+        assert restored.unk_token_id not in ids
+        assert restored.decode(ids) == "CéO"
+
+    def test_file_layout(self, tmp_path):
+        """The documented JSON layout: vocab index = ID, merges as ID triples in order."""
+        import rustmolbpe
+        tok = _trained_tokenizer(rustmolbpe.CharBPETokenizer)
+        path = tmp_path / "tokenizer.json"
+        tok.save(str(path))
+
+        data = json.loads(path.read_text(encoding="utf-8"))
+
+        assert (data["format"], data["version"], data["pretokenizer"]) == ("rustmolbpe", 1, "char")
+        assert data["vocab"] == [token for token, _id in tok.get_vocabulary()]
+        vocab = data["vocab"]
+        assert [(vocab[l], vocab[r], vocab[m]) for l, r, m in data["merges"]] == tok.get_merges()
+
+    def test_merge_less_file_loads_into_bpe_class(self, tmp_path):
+        import rustmolbpe
+        tok = _trained_tokenizer(rustmolbpe.CharTokenizer)
+        path = str(tmp_path / "tokenizer.json")
+        tok.save(path)
+
+        restored = rustmolbpe.CharBPETokenizer.from_file(path)
+
+        assert restored.get_vocabulary() == tok.get_vocabulary()
+        assert restored.has_vocabulary()
+        assert not restored.is_trained()
+
+    def test_granularity_mismatch_rejected(self, tmp_path):
+        import rustmolbpe
+        path = str(tmp_path / "tokenizer.json")
+        _trained_tokenizer(rustmolbpe.CharBPETokenizer).save(path)
+        for cls in (rustmolbpe.SmilesTokenizer, rustmolbpe.ByteBPETokenizer):
+            with pytest.raises(ValueError, match="granularity mismatch"):
+                cls.from_file(path)
+
+    def test_merges_rejected_by_no_merge_class(self, tmp_path):
+        import rustmolbpe
+        path = str(tmp_path / "tokenizer.json")
+        _trained_tokenizer(rustmolbpe.CharBPETokenizer).save(path)
+        with pytest.raises(ValueError, match="has BPE merges"):
+            rustmolbpe.CharTokenizer.from_file(path)
+
+    @pytest.mark.parametrize(
+        "field, value, message",
+        [
+            ("format", "something-else", "Not a rustmolbpe tokenizer file"),
+            ("version", 2, "Unsupported rustmolbpe tokenizer file version"),
+            ("pretokenizer", "bogus", "Unknown pretokenizer"),
+            ("vocab", ["C", "O"], "special tokens"),
+        ],
+    )
+    def test_invalid_header_rejected(self, tmp_path, field, value, message):
+        import rustmolbpe
+        path = tmp_path / "tokenizer.json"
+        _trained_tokenizer(rustmolbpe.CharBPETokenizer).save(str(path))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data[field] = value
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+        with pytest.raises(ValueError, match=message):
+            rustmolbpe.CharBPETokenizer.from_file(str(path))
+
+    def test_invalid_merges_rejected(self, tmp_path):
+        import copy
+        import rustmolbpe
+        path = tmp_path / "tokenizer.json"
+        _trained_tokenizer(rustmolbpe.CharBPETokenizer).save(str(path))
+        original = json.loads(path.read_text(encoding="utf-8"))
+        # vocab[4] is a single base character, so it cannot equal left + right.
+        cases = [
+            (lambda d: d["merges"][0].__setitem__(2, 10**6), "outside the vocab"),
+            (lambda d: d["merges"][0].__setitem__(2, 4), "inconsistent"),
+            (lambda d: d["merges"].append(list(d["merges"][0])), "duplicate merge"),
+        ]
+        for corrupt, message in cases:
+            data = copy.deepcopy(original)
+            corrupt(data)
+            path.write_text(json.dumps(data), encoding="utf-8")
+            with pytest.raises(ValueError, match=message):
+                rustmolbpe.CharBPETokenizer.from_file(str(path))
+
+    def test_not_json_rejected(self, tmp_path):
+        import rustmolbpe
+        path = tmp_path / "tokenizer.json"
+        path.write_text("not json", encoding="utf-8")
+        with pytest.raises(ValueError, match="Invalid rustmolbpe tokenizer file"):
+            rustmolbpe.CharBPETokenizer.from_file(str(path))
+
+    def test_missing_file_raises_ioerror(self, tmp_path):
+        import rustmolbpe
+        with pytest.raises(IOError):
+            rustmolbpe.SmilesTokenizer.from_file(str(tmp_path / "missing.json"))

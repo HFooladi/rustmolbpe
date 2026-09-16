@@ -219,6 +219,22 @@ impl TokenizerCore {
         crate::huggingface::restore_from_hf_json(self, &json)
     }
 
+    // --- Native tokenizer file ----------------------------------------------
+
+    /// Write a lossless native JSON tokenizer file (every tokenizer class).
+    pub(crate) fn save(&self, path: &str) -> PyResult<()> {
+        let json = crate::native_format::to_native_json(self)?;
+        std::fs::write(path, json)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("Cannot write file: {e}")))
+    }
+
+    /// Restore from a native JSON tokenizer file written by [`Self::save`].
+    pub(crate) fn restore_from_file(&mut self, path: &str) -> PyResult<()> {
+        let json = std::fs::read_to_string(path)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("Cannot read file: {e}")))?;
+        crate::native_format::restore_from_native_json(self, &json)
+    }
+
     // --- Encoding / decoding ------------------------------------------------
 
     pub(crate) fn encode(&self, smiles: &str, add_special_tokens: bool) -> Vec<u32> {

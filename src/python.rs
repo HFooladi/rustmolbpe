@@ -167,6 +167,30 @@ macro_rules! define_tokenizer {
                 Ok(Self { core })
             }
 
+            // --- Lossless tokenizer file ------------------------------------
+
+            /// Save the complete tokenizer to a lossless JSON file.
+            ///
+            /// Unlike `save_vocabulary` (merge rules only), a `save` /
+            /// `from_file` round trip preserves every token ID. Supported by
+            /// every tokenizer class.
+            pub fn save(&self, path: &str) -> PyResult<()> {
+                self.core.save(path)
+            }
+
+            /// Load a tokenizer saved with `save`.
+            ///
+            /// Raises `ValueError` if the file is not a valid rustmolbpe
+            /// tokenizer file or was saved by a tokenizer of a different
+            /// granularity.
+            #[classmethod]
+            #[pyo3(signature = (path))]
+            pub fn from_file(_cls: &Bound<'_, PyType>, path: &str) -> PyResult<Self> {
+                let mut core = TokenizerCore::new($kind, $allow_merges);
+                core.restore_from_file(path)?;
+                Ok(Self { core })
+            }
+
             // --- Vocabulary queries -----------------------------------------
 
             /// The vocabulary size (special tokens + base units + merges).

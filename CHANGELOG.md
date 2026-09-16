@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-16
+
 ### Added
 
 - `ByteBPETokenizer` — a fifth tokenizer class extending the ladder with
@@ -120,7 +122,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 16-18x faster training than SMILESPE
 - ~200,000-280,000 SMILES/second batch encoding
 
-[Unreleased]: https://github.com/HFooladi/rustmolbpe/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/HFooladi/rustmolbpe/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/HFooladi/rustmolbpe/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/HFooladi/rustmolbpe/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/HFooladi/rustmolbpe/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/HFooladi/rustmolbpe/releases/tag/v0.1.0

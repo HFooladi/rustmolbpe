@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
@@ -329,6 +329,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tokenizers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tokenizers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#performance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -528,6 +539,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tokenizers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tokenizers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#performance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -648,19 +670,68 @@
 
 
 <h1 id="rustmolbpe">rustmolbpe<a class="headerlink" href="#rustmolbpe" title="Permanent link">&para;</a></h1>
+<p><a href="https://pypi.org/project/rustmolbpe/"><img alt="PyPI" src="https://img.shields.io/pypi/v/rustmolbpe" /></a>
+<a href="https://pypi.org/project/rustmolbpe/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/rustmolbpe" /></a></p>
 <p>A high-performance BPE (Byte Pair Encoding) tokenizer for molecular SMILES written in Rust with Python bindings.</p>
-<p><strong>Current version: 0.2.0</strong></p>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>Five tokenizers, one API</strong>: from a plain character-level tokenizer up to atom-level and byte-level BPE — pick the granularity you need and compare them directly</li>
 <li><strong>SMILES-aware tokenization</strong>: Correctly handles multi-character atoms (Br, Cl), bracket atoms ([C@@H], [N+]), ring closures, and stereochemistry</li>
 <li><strong>Fast training</strong>: Parallel processing with Rayon for efficient training on large molecular datasets</li>
 <li><strong>Streaming support</strong>: Train on datasets of any size with configurable buffer sizes</li>
 <li><strong>Special tokens</strong>: Built-in PAD, UNK, BOS, EOS tokens for sequence modeling</li>
 <li><strong>Batch padding</strong>: Ready for transformer models with attention masks</li>
 <li><strong>SMILESPE compatibility</strong>: Load and save vocabularies in SMILESPE format</li>
+<li><strong>HuggingFace interop</strong>: Export to / import from the <code>tokenizers</code> <code>tokenizer.json</code> format</li>
 <li><strong>Pickle support</strong>: Full serialization support for multiprocessing workflows</li>
 <li><strong>Type hints</strong>: PEP 561 compliant with <code>py.typed</code> marker</li>
 </ul>
+<h2 id="tokenizers">Tokenizers<a class="headerlink" href="#tokenizers" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Granularity</th>
+<th>Learns merges</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CharTokenizer</code></td>
+<td>character</td>
+<td>no</td>
+<td>Splits a SMILES string into individual characters</td>
+</tr>
+<tr>
+<td><code>AtomTokenizer</code></td>
+<td>atom (regex)</td>
+<td>no</td>
+<td>Splits into atoms/structural tokens (Br, Cl, [C@@H] kept whole)</td>
+</tr>
+<tr>
+<td><code>CharBPETokenizer</code></td>
+<td>character</td>
+<td>yes</td>
+<td>BPE merges learned on top of character splitting</td>
+</tr>
+<tr>
+<td><code>SmilesTokenizer</code></td>
+<td>atom (regex)</td>
+<td>yes</td>
+<td>BPE merges learned on top of atom splitting ("SPE")</td>
+</tr>
+<tr>
+<td><code>ByteBPETokenizer</code></td>
+<td>byte (UTF-8)</td>
+<td>yes</td>
+<td>BPE merges on raw bytes; never emits <code>&lt;unk&gt;</code> once trained</td>
+</tr>
+</tbody>
+</table>
+<p><code>SmilesTokenizer</code> is also exported as <code>AtomBPETokenizer</code>, an exact alias of the
+same class. See <a href="quickstart/#choosing-a-tokenizer">Choosing a tokenizer</a> for
+how the classes differ in practice.</p>
 <h2 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h2>
 <p>rustmolbpe is significantly faster than the original Python SMILESPE implementation:</p>
 <table>
@@ -687,28 +758,33 @@
 <li><strong>Training</strong>: 2.8M molecules in ~100 seconds</li>
 </ul>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<p>Requires Python 3.10 or newer.</p>
 <h3 id="from-pypi">From PyPI<a class="headerlink" href="#from-pypi" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>rustmolbpe
 </code></pre></div>
 <h3 id="from-source">From source<a class="headerlink" href="#from-source" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Install maturin</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>pip<span class="w"> </span>install<span class="w"> </span>maturin
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Clone and build</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/HFooladi/rustmolbpe.git
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nb">cd</span><span class="w"> </span>rustmolbpe
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>maturin<span class="w"> </span>develop<span class="w"> </span>--release
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Clone the repository</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/HFooladi/rustmolbpe.git
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">cd</span><span class="w"> </span>rustmolbpe
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Create virtual environment with uv</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>uv<span class="w"> </span>venv<span class="w"> </span>.venv
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1"># Install dependencies and build</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>maturin
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>maturin<span class="w"> </span>develop<span class="w"> </span>--release
 </code></pre></div>
 <h2 id="quick-example">Quick Example<a class="headerlink" href="#quick-example" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">rustmolbpe</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Create tokenizer and load vocabulary</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="p">()</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">load_vocabulary</span><span class="p">(</span><span class="s2">&quot;data/chembl36_vocab.txt&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">load_vocabulary</span><span class="p">(</span><span class="s2">"data/chembl36_vocab.txt"</span><span class="p">)</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Encode SMILES</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">ids</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;CC(=O)Nc1ccc(O)cc1&quot;</span><span class="p">)</span>  <span class="c1"># paracetamol</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>  <span class="c1"># [2864, 1077]</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">ids</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"CC(=O)Nc1ccc(O)cc1"</span><span class="p">)</span>  <span class="c1"># paracetamol</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>  <span class="c1"># [2338, 539]</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1"># Decode back</span>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">smiles</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>
@@ -716,18 +792,18 @@
 <a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
 <a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="c1"># Batch processing with padding (for ML)</span>
 <a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">result</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">encode_batch_padded</span><span class="p">(</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="p">[</span><span class="s2">&quot;CCO&quot;</span><span class="p">,</span> <span class="s2">&quot;c1ccccc1&quot;</span><span class="p">,</span> <span class="s2">&quot;CC(=O)O&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="p">[</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"c1ccccc1"</span><span class="p">,</span> <span class="s2">"CC(=O)O"</span><span class="p">],</span>
 <a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>    <span class="n">add_special_tokens</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>    <span class="n">return_attention_mask</span><span class="o">=</span><span class="kc">True</span>
 <a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="p">)</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">])</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;attention_mask&quot;</span><span class="p">])</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">])</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">])</span>
 </code></pre></div>
 <h2 id="pre-trained-vocabularies">Pre-trained Vocabularies<a class="headerlink" href="#pre-trained-vocabularies" title="Permanent link">&para;</a></h2>
-<p>Pre-trained vocabularies are included:</p>
+<p>Pre-trained atom-level BPE (<code>SmilesTokenizer</code>) vocabularies are included:</p>
 <ul>
-<li><code>data/chembl36_vocab.txt</code> - Trained on ChEMBL 36 (2.8M drug-like molecules)</li>
-<li><code>data/pubchem_10M_vocab.txt</code> - Trained on PubChem (10M diverse molecules)</li>
+<li><code>data/chembl36_vocab.txt</code> - Trained on ChEMBL 36 (2.8M drug-like molecules, 3,807 merges)</li>
+<li><code>data/pubchem_10M_vocab.txt</code> - Trained on PubChem (10M diverse molecules, 2,410 merges)</li>
 </ul>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
 <p>MIT License - see <a href="https://github.com/HFooladi/rustmolbpe/blob/main/LICENSE">LICENSE</a></p>
@@ -799,7 +875,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "content.code.copy", "content.code.annotate"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

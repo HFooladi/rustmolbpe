@@ -7,7 +7,7 @@ A high-performance BPE (Byte Pair Encoding) tokenizer for molecular SMILES writt
 
 ## Features
 
-- **Four tokenizers, one API**: from a plain character-level tokenizer up to atom-level BPE — pick the granularity you need and compare them directly
+- **Five tokenizers, one API**: from a plain character-level tokenizer up to atom-level and byte-level BPE — pick the granularity you need and compare them directly
 - **SMILES-aware tokenization**: atom-level pre-tokenization correctly handles multi-character atoms (Br, Cl), bracket atoms ([C@@H], [N+]), ring closures, and stereochemistry
 - **Fast training**: Parallel processing with Rayon for efficient training on large molecular datasets
 - **Streaming support**: Train on datasets of any size with configurable buffer sizes
@@ -526,8 +526,8 @@ Benchmarks performed on ChEMBL 36 (~2.8M drug-like molecules) and PubChem (~123M
 
 Pre-trained vocabularies are available in the `data/` directory:
 
-- `chembl36_vocab.txt` - Trained on ChEMBL 36 (2.8M drug-like molecules, 7,715 merges)
-- `pubchem_10M_vocab.txt` - Trained on PubChem (10M diverse molecules, 6,385 merges)
+- `chembl36_vocab.txt` - Trained on ChEMBL 36 (2.8M drug-like molecules, 3,807 merges)
+- `pubchem_10M_vocab.txt` - Trained on PubChem (10M diverse molecules, 2,410 merges)
 
 ```python
 import rustmolbpe

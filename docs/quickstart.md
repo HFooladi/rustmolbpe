@@ -4,6 +4,8 @@ This guide will help you get started with rustmolbpe.
 
 ## Installation
 
+rustmolbpe requires Python 3.10 or newer.
+
 ### From PyPI (Recommended)
 
 ```bash
@@ -24,6 +26,57 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install maturin
 maturin develop --release
 ```
+
+## Choosing a tokenizer
+
+rustmolbpe provides five tokenizer classes with an identical API, so you can
+swap one for another and compare them directly. They differ in how a SMILES
+string is split into base units, and in whether BPE merges are learned on top:
+
+| Class              | Base units   | Learns merges | Typical use                                              |
+|--------------------|--------------|---------------|----------------------------------------------------------|
+| `CharTokenizer`    | characters   | no            | Simplest baseline; one token per character               |
+| `AtomTokenizer`    | atoms        | no            | Chemically meaningful tokens without training            |
+| `CharBPETokenizer` | characters   | yes           | Compact sequences; exportable to HuggingFace             |
+| `SmilesTokenizer`  | atoms        | yes           | Compact, chemically aware sequences ("SPE")              |
+| `ByteBPETokenizer` | UTF-8 bytes  | yes           | Any input is representable; never emits `<unk>` once trained |
+
+`SmilesTokenizer` is also available as `AtomBPETokenizer` (the same class).
+
+```python
+import rustmolbpe
+
+char = rustmolbpe.CharTokenizer()
+atom = rustmolbpe.AtomTokenizer()
+
+# Character-level: chlorine "Cl" is two tokens ('C', 'l')
+len(char.encode("CCl"))  # 3
+
+# Atom-level: chlorine "Cl" is a single token
+len(atom.encode("CCl"))  # 2
+```
+
+`CharTokenizer` and `AtomTokenizer` have no merges: `train_from_iterator` only
+builds the base vocabulary (`vocab_size` is ignored). Use `has_vocabulary()` to
+check whether a base vocabulary has been built and `is_trained()` to check for
+learned merges.
+
+`ByteBPETokenizer` always uses the 256 byte values as its base alphabet
+(`base_vocab_size == 260` once trained, including the 4 special tokens). Because
+`vocab_size` counts that base alphabet, it learns fewer merges than
+`CharBPETokenizer` at the same `vocab_size`.
+
+How each class can be saved:
+
+| Class              | SMILESPE vocabulary file | HuggingFace `tokenizer.json` | pickle |
+|--------------------|--------------------------|------------------------------|--------|
+| `CharTokenizer`    | —                        | yes                          | yes    |
+| `AtomTokenizer`    | —                        | yes                          | yes    |
+| `CharBPETokenizer` | yes                      | yes                          | yes    |
+| `SmilesTokenizer`  | yes                      | —                            | yes    |
+| `ByteBPETokenizer` | —                        | —                            | yes    |
+
+Unsupported formats raise `NotImplementedError`.
 
 ## Basic Usage
 
@@ -183,6 +236,27 @@ def encode_smiles(smiles):
 with Pool(4) as pool:
     results = pool.map(encode_smiles, smiles_list)
 ```
+
+## HuggingFace Interop
+
+`CharTokenizer`, `AtomTokenizer` and `CharBPETokenizer` can be exported to the
+HuggingFace `tokenizers` `tokenizer.json` format and loaded back:
+
+```python
+tok = rustmolbpe.CharBPETokenizer()
+tok.train_from_iterator(smiles_generator("molecules.smi"), vocab_size=8000)
+tok.save_huggingface("tokenizer.json")
+
+# Load it back into rustmolbpe...
+restored = rustmolbpe.CharBPETokenizer.from_huggingface("tokenizer.json")
+
+# ...or use it from `transformers`:
+from transformers import PreTrainedTokenizerFast
+hf = PreTrainedTokenizerFast(tokenizer_file="tokenizer.json")
+```
+
+`from_huggingface` raises `ValueError` if the file does not match the class it
+is called on. See the [API Reference](api.md#huggingface-interop) for details.
 
 ## Next Steps
 

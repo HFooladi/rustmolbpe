@@ -36,12 +36,45 @@ Tokenize a SMILES string into atom-level tokens.
 
 ---
 
-## Class: SmilesTokenizer
+## Tokenizer Classes
 
-BPE tokenizer for molecular SMILES strings (atom-level BPE, "SPE").
+rustmolbpe exports five tokenizer classes. They share the API documented in
+[Shared API](#shared-api) below and differ in pre-tokenization granularity and
+in whether BPE merges are learned:
 
-> **Alias:** also exported as `AtomBPETokenizer`. The two names bind to the same
-> class object — `rustmolbpe.AtomBPETokenizer is rustmolbpe.SmilesTokenizer`.
+| Class              | Granularity  | Learns merges | Notes                                                        |
+|--------------------|--------------|---------------|--------------------------------------------------------------|
+| `CharTokenizer`    | character    | no            | One token per Unicode character                              |
+| `AtomTokenizer`    | atom (regex) | no            | Multi-character atoms (`Br`, `Cl`, `[C@@H]`) kept whole      |
+| `CharBPETokenizer` | character    | yes           | BPE on characters                                            |
+| `SmilesTokenizer`  | atom (regex) | yes           | BPE on atoms ("SPE"); also exported as `AtomBPETokenizer`    |
+| `ByteBPETokenizer` | byte (UTF-8) | yes           | BPE on raw bytes; lossless round-trip, no `<unk>` once trained |
+
+> **Alias:** `AtomBPETokenizer` and `SmilesTokenizer` bind to the same class
+> object — `rustmolbpe.AtomBPETokenizer is rustmolbpe.SmilesTokenizer`.
+
+Class-specific behavior:
+
+- **`CharTokenizer`, `AtomTokenizer`**: `train_from_iterator` only builds the
+  base vocabulary; `vocab_size` is ignored and `num_merges` is always 0.
+  `load_vocabulary` / `save_vocabulary` raise `NotImplementedError`.
+- **`ByteBPETokenizer`**: the base alphabet is always the 256 byte values
+  (`base_vocab_size == 260` once trained). `load_vocabulary`, `save_vocabulary`,
+  `save_huggingface` and `from_huggingface` raise `NotImplementedError`; use
+  pickle to persist it.
+- **`SmilesTokenizer`**: `save_huggingface` raises `NotImplementedError`
+  (atom-level BPE cannot be expressed as a stock HuggingFace fast tokenizer).
+
+A pickle can only be restored into a tokenizer of matching granularity (atom,
+character or byte); restoring it into a tokenizer of a different granularity
+raises `ValueError`.
+
+---
+
+## Shared API
+
+Every tokenizer class provides the methods below. Examples use
+`SmilesTokenizer`; unless noted otherwise, the other classes behave the same.
 
 ### Constructor
 
@@ -110,7 +143,8 @@ tokenizer.train_from_iterator(
 def load_vocabulary(self, path: str) -> None
 ```
 
-Load vocabulary from a SMILESPE-format file.
+Load vocabulary from a SMILESPE-format file. Supported by `CharBPETokenizer`
+and `SmilesTokenizer`.
 
 **Arguments:**
 
@@ -119,6 +153,7 @@ Load vocabulary from a SMILESPE-format file.
 **Raises:**
 
 - `IOError`: If file cannot be read
+- `NotImplementedError`: For `CharTokenizer`, `AtomTokenizer` and `ByteBPETokenizer`
 
 #### save_vocabulary
 
@@ -126,7 +161,8 @@ Load vocabulary from a SMILESPE-format file.
 def save_vocabulary(self, path: str) -> None
 ```
 
-Save vocabulary to a SMILESPE-format file.
+Save vocabulary to a SMILESPE-format file. Supported by `CharBPETokenizer`
+and `SmilesTokenizer`.
 
 **Arguments:**
 
@@ -135,6 +171,78 @@ Save vocabulary to a SMILESPE-format file.
 **Raises:**
 
 - `IOError`: If file cannot be written
+- `NotImplementedError`: For `CharTokenizer`, `AtomTokenizer` and `ByteBPETokenizer`
+
+---
+
+### HuggingFace Interop
+
+#### save_huggingface
+
+```python
+def save_huggingface(self, path: str) -> None
+```
+
+Export the tokenizer to a HuggingFace `tokenizers` JSON file, loadable by
+`transformers.PreTrainedTokenizerFast(tokenizer_file=...)` and the `tokenizers`
+library.
+
+| Class              | HuggingFace representation                 |
+|--------------------|--------------------------------------------|
+| `CharTokenizer`    | `BPE` model, no merges                     |
+| `CharBPETokenizer` | `BPE` model with character merges          |
+| `AtomTokenizer`    | `WordLevel` model + atom-regex `Split`     |
+| `SmilesTokenizer`  | not supported                              |
+| `ByteBPETokenizer` | not supported                              |
+
+HuggingFace applies *merge-order* BPE while rustmolbpe uses *greedy
+longest-match*, so for `CharBPETokenizer` the vocabulary and merges transfer
+exactly but individual token sequences may occasionally differ.
+
+**Arguments:**
+
+- `path` (str): Path to write the `tokenizer.json` file
+
+**Raises:**
+
+- `IOError`: If the file cannot be written
+- `NotImplementedError`: For `SmilesTokenizer` and `ByteBPETokenizer`
+
+#### from_huggingface
+
+```python
+@classmethod
+def from_huggingface(cls, path: str) -> Self
+```
+
+Load a tokenizer from a HuggingFace `tokenizers` JSON file written by
+`save_huggingface` (or a compatible character-level `BPE` / atom-level
+`WordLevel` tokenizer).
+
+**Arguments:**
+
+- `path` (str): Path to a `tokenizer.json` file
+
+**Returns:**
+
+- A new tokenizer instance of the calling class
+
+**Raises:**
+
+- `IOError`: If the file cannot be read
+- `ValueError`: If the file is malformed, or its granularity / merge profile does not match the calling class (always the case for `SmilesTokenizer`, which has no HuggingFace representation)
+- `NotImplementedError`: For `ByteBPETokenizer`
+
+**Example:**
+
+```python
+tok = rustmolbpe.CharBPETokenizer()
+tok.train_from_iterator(smiles_generator("molecules.smi"), vocab_size=8000)
+tok.save_huggingface("tokenizer.json")
+
+restored = rustmolbpe.CharBPETokenizer.from_huggingface("tokenizer.json")
+rustmolbpe.AtomTokenizer.from_huggingface("tokenizer.json")  # ValueError
+```
 
 ---
 
@@ -157,11 +265,11 @@ Encode a SMILES string to token IDs.
 
 - `List[int]`: List of token IDs
 
-**Example:**
+**Example** (with `data/chembl36_vocab.txt` loaded):
 
 ```python
-ids = tokenizer.encode("CCO")  # [42]
-ids = tokenizer.encode("CCO", add_special_tokens=True)  # [2, 42, 3]
+ids = tokenizer.encode("CCO")  # [353]
+ids = tokenizer.encode("CCO", add_special_tokens=True)  # [2, 353, 3]
 ```
 
 #### batch_encode
@@ -184,6 +292,45 @@ Encode multiple SMILES strings in parallel.
 **Returns:**
 
 - `List[List[int]]`: List of token ID lists
+
+#### \_\_call\_\_
+
+```python
+def __call__(
+    self,
+    text: str | List[str],
+    padding: bool = False,
+    truncation: bool = False,
+    max_length: Optional[int] = None,
+    add_special_tokens: bool = False,
+    return_attention_mask: bool = True
+) -> Dict[str, Any]
+```
+
+Encode one or more SMILES strings with a HuggingFace-style call interface.
+
+**Arguments:**
+
+- `text` (str or List[str]): A SMILES string or a list of SMILES strings
+- `padding` (bool, optional): If True, right-pad sequences to equal length. Default: False
+- `truncation` (bool, optional): If True, truncate sequences to `max_length`. Default: False
+- `max_length` (int, optional): Maximum sequence length for padding/truncation
+- `add_special_tokens` (bool, optional): If True, add BOS/EOS tokens. Default: False
+- `return_attention_mask` (bool, optional): If True, include `attention_mask`. Default: True
+
+**Returns:**
+
+- `Dict[str, Any]`: `"input_ids"` and optionally `"attention_mask"` — flat lists for a single string, nested lists for a list input
+
+**Example** (with `data/chembl36_vocab.txt` loaded):
+
+```python
+tokenizer("CCO", add_special_tokens=True)
+# {'input_ids': [2, 353, 3], 'attention_mask': [1, 1, 1]}
+
+tokenizer(["CCO", "c1ccccc1C"], padding=True)
+# {'input_ids': [[353, 0], [782, 155]], 'attention_mask': [[1, 0], [1, 1]]}
+```
 
 ---
 
@@ -289,16 +436,16 @@ Convenience method combining `batch_encode` and `pad`.
 
 - `Dict[str, List[List[int]]]`: Dictionary with "input_ids" and optionally "attention_mask"
 
-**Example:**
+**Example** (with `data/chembl36_vocab.txt` loaded):
 
 ```python
 result = tokenizer.encode_batch_padded(
     ["CCO", "c1ccccc1"],
-    max_length=10,
+    max_length=6,
     add_special_tokens=True
 )
-print(result["input_ids"])       # [[2, 42, 3, 0, 0, ...], [2, 15, 3, 0, 0, ...]]
-print(result["attention_mask"])  # [[1, 1, 1, 0, 0, ...], [1, 1, 1, 0, 0, ...]]
+print(result["input_ids"])       # [[2, 353, 3, 0, 0, 0], [2, 782, 3, 0, 0, 0]]
+print(result["attention_mask"])  # [[1, 1, 1, 0, 0, 0], [1, 1, 1, 0, 0, 0]]
 ```
 
 ---
@@ -364,7 +511,7 @@ Convert token string to token ID.
 | Property | Type | Description |
 |----------|------|-------------|
 | `vocab_size` | int | Total vocabulary size (special + base atoms + merges) |
-| `base_vocab_size` | int | Number of base atom tokens |
+| `base_vocab_size` | int | Number of base tokens, including the 4 special tokens (always 260 for a trained `ByteBPETokenizer`) |
 | `num_merges` | int | Number of learned merge operations |
 | `pad_token_id` | int | PAD token ID (always 0) |
 | `unk_token_id` | int | UNK token ID (always 1) |
@@ -385,7 +532,8 @@ Convert token string to token ID.
 def is_trained(self) -> bool
 ```
 
-Check if the tokenizer has been trained or has a vocabulary loaded.
+Check whether the tokenizer has learned (or loaded) BPE merges. Always False for
+`CharTokenizer` and `AtomTokenizer`; use `has_vocabulary` for those.
 
 **Returns:**
 
@@ -397,8 +545,29 @@ Check if the tokenizer has been trained or has a vocabulary loaded.
 tokenizer = rustmolbpe.SmilesTokenizer()
 print(tokenizer.is_trained())  # False
 
-tokenizer.train_from_iterator(iter(["CCO", "CCC"]), vocab_size=50)
+tokenizer.train_from_iterator(iter(["CCO", "CCC"]), vocab_size=50, min_frequency=1)
 print(tokenizer.is_trained())  # True
+```
+
+#### has_vocabulary
+
+```python
+def has_vocabulary(self) -> bool
+```
+
+Check whether a base vocabulary has been built.
+
+**Returns:**
+
+- `bool`: True if the vocabulary contains tokens beyond the 4 special tokens
+
+**Example:**
+
+```python
+tokenizer = rustmolbpe.AtomTokenizer()
+tokenizer.train_from_iterator(iter(["CCO", "CCl"]), vocab_size=0)
+print(tokenizer.has_vocabulary())  # True
+print(tokenizer.is_trained())      # False (no merges)
 ```
 
 #### get_merges
@@ -411,13 +580,15 @@ Get the learned merge rules as tuples.
 
 **Returns:**
 
-- `List[Tuple[str, str, str]]`: List of (left_token, right_token, merged_token) tuples, ordered by merge priority
+- `List[Tuple[str, str, str]]`: List of (left_token, right_token, merged_token) tuples, ordered by merge priority. Empty for `CharTokenizer` and `AtomTokenizer`
 
 **Example:**
 
 ```python
 tokenizer = rustmolbpe.SmilesTokenizer()
-tokenizer.load_vocabulary("data/chembl36_vocab.txt")
+tokenizer.train_from_iterator(
+    iter(["CCO", "CCN", "CCO", "c1ccccc1"]), vocab_size=60, min_frequency=1
+)
 
 merges = tokenizer.get_merges()
 print(merges[:3])  # First 3 merge rules
@@ -430,7 +601,8 @@ print(merges[:3])  # First 3 merge rules
 
 #### Pickle Support
 
-`SmilesTokenizer` supports Python's pickle protocol for serialization.
+Every tokenizer class supports Python's pickle protocol. Pickle is the only way
+to persist a `ByteBPETokenizer`.
 
 ```python
 import pickle

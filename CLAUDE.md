@@ -53,6 +53,23 @@ cargo fmt --check
 cargo clippy -- -D warnings
 ```
 
+## Documentation
+
+The docs site (`docs/`, MkDocs + Material) is published to GitHub Pages at
+https://hfooladi.github.io/rustmolbpe by `.github/workflows/docs.yml` on every
+push to `main` that touches the docs; PRs run a strict build only.
+
+```bash
+# Install MkDocs (a PEP 735 dependency group; no Rust build needed)
+uv pip install --group docs
+
+# Live preview at http://127.0.0.1:8000
+mkdocs serve
+
+# What CI runs (fails on warnings)
+mkdocs build --strict
+```
+
 ## Architecture
 
 ### Modular Structure (`src/`)
@@ -112,8 +129,8 @@ PyO3 exposes the five tokenizer classes (`CharTokenizer`, `AtomTokenizer`, `Char
 
 ### Pre-trained Vocabularies
 
-- `data/chembl36_vocab.txt` - ChEMBL 36 (2.8M molecules, 7,715 merges)
-- `data/pubchem_10M_vocab.txt` - PubChem (10M molecules, 6,385 merges)
+- `data/chembl36_vocab.txt` - ChEMBL 36 (2.8M molecules, 3,807 merges)
+- `data/pubchem_10M_vocab.txt` - PubChem (10M molecules, 2,410 merges)
 
 ## Vocabulary Format
 
@@ -129,6 +146,7 @@ Example: `c c` means merge `c` + `c` into `cc`.
 - Linting with `cargo fmt --check` and `cargo clippy`
 - Code coverage with Codecov (Rust via cargo-tarpaulin, Python via pytest-cov)
 - PyPI publishing workflow on release (`publish.yml`)
+- Docs site built on PRs and deployed to GitHub Pages on push to `main` (`docs.yml`)
 
 ### Debugging CI Failures
 

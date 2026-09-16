@@ -36,6 +36,15 @@ hf = [
     "tokenizers>=0.15",
 ]
 
+# Dependency groups (PEP 735) are installable without building the Rust package:
+# `pip install --group docs` (pip >= 25.1) or `uv pip install --group docs`.
+[dependency-groups]
+# Builds the documentation site: `mkdocs serve` / `mkdocs build --strict`.
+docs = [
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.5,<10",
+]
+
 # Tells Python to use maturin as the build backend
 [build-system]
 requires = ["maturin>=1.7,<2.0"]

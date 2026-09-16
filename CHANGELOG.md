@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `save(path)` and `from_file(path)` on every tokenizer class: a lossless,
+  human-readable JSON tokenizer file holding the full vocabulary with its token
+  IDs, the merges in priority order and the pre-tokenizer granularity. Unlike a
+  SMILESPE vocabulary file, a round trip restores identical token IDs; unlike a
+  pickle, it is safe to load from an untrusted source. This is now the
+  recommended way to persist a `ByteBPETokenizer`.
+
 ### Fixed
+
+- Merge priority order is preserved after `load_vocabulary`. Loaded merges were
+  previously re-ordered by token ID, so `save_vocabulary` rewrote a loaded file
+  in a different order (the original SmilesPE library tokenized 2,995 of 3,000
+  ChEMBL molecules differently with a re-saved `chembl36_vocab.txt`),
+  `save_huggingface` exported merges in the wrong priority, and `get_merges()`
+  was out of order. Token IDs assigned by `load_vocabulary` are unchanged.
+  Pickles now keep merge order too, and pickles from earlier versions still load.
 
 - `min_frequency` in `train_from_iterator` is now a threshold on pair counts,
   as documented: a pair is merged only if it occurs at least `min_frequency`

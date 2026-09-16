@@ -1,12 +1,13 @@
 //! rustmolbpe - High-performance tokenizers for molecular SMILES strings.
 //!
-//! This crate provides a ladder of four SMILES tokenizers, all sharing one
+//! This crate provides a ladder of five SMILES tokenizers, all sharing one
 //! granularity-agnostic core ([`core::TokenizerCore`]):
 //!
 //! - [`CharTokenizer`] - character-level splitting, no merges.
 //! - [`AtomTokenizer`] - atom-level regex splitting, no merges.
 //! - [`CharBPETokenizer`] - BPE trained on characters.
 //! - [`SmilesTokenizer`] - BPE trained on atoms (SMILES Pair Encoding, "SPE").
+//! - [`ByteBPETokenizer`] - BPE trained on UTF-8 bytes.
 //!
 //! Unlike byte-level BPE tokenizers, the atom-level tokenizers treat
 //! multi-character atoms (like `Br`, `Cl`, `[C@@H]`) as single units.

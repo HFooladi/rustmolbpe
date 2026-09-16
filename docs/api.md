@@ -61,7 +61,7 @@ Class-specific behavior:
 - **`ByteBPETokenizer`**: the base alphabet is always the 256 byte values
   (`base_vocab_size == 260` once trained). `load_vocabulary`, `save_vocabulary`,
   `save_huggingface` and `from_huggingface` raise `NotImplementedError`; use
-  pickle to persist it.
+  [`save` / `from_file`](#tokenizer-file) to persist it.
 - **`SmilesTokenizer`**: `save_huggingface` raises `NotImplementedError`
   (atom-level BPE cannot be expressed as a stock HuggingFace fast tokenizer).
 
@@ -146,6 +146,11 @@ def load_vocabulary(self, path: str) -> None
 Load vocabulary from a SMILESPE-format file. Supported by `CharBPETokenizer`
 and `SmilesTokenizer`.
 
+The SMILESPE format stores merge rules only, in priority order. Loading assigns
+token IDs that generally differ from the tokenizer that saved the file, and base
+tokens that never took part in a merge are not included. Use
+[`save` / `from_file`](#tokenizer-file) to persist a tokenizer with identical IDs.
+
 **Arguments:**
 
 - `path` (str): Path to vocabulary file
@@ -172,6 +177,64 @@ and `SmilesTokenizer`.
 
 - `IOError`: If file cannot be written
 - `NotImplementedError`: For `CharTokenizer`, `AtomTokenizer` and `ByteBPETokenizer`
+
+---
+
+### Tokenizer File
+
+#### save
+
+```python
+def save(self, path: str) -> None
+```
+
+Save the complete tokenizer to a lossless JSON file: the full vocabulary with its
+token IDs, the merges in priority order, and the pre-tokenizer granularity.
+Supported by every tokenizer class. Prefer this over `save_vocabulary` to persist
+a tokenizer used by a trained model.
+
+**Raises:**
+
+- `IOError`: If the file cannot be written
+
+#### from_file
+
+```python
+@classmethod
+def from_file(cls, path: str) -> Self
+```
+
+Load a tokenizer saved with `save`. Token IDs, merges and encodings are identical
+to the saved tokenizer.
+
+**Raises:**
+
+- `IOError`: If the file cannot be read
+- `ValueError`: If the file is not a valid rustmolbpe tokenizer file, has an unsupported version, was saved by a tokenizer of a different granularity, or contains merges and the calling class learns none
+
+**Example:**
+
+```python
+tokenizer.save("tokenizer.json")
+restored = rustmolbpe.SmilesTokenizer.from_file("tokenizer.json")
+assert restored.get_vocabulary() == tokenizer.get_vocabulary()
+```
+
+**File layout** (JSON):
+
+```json
+{
+  "format": "rustmolbpe",
+  "version": 1,
+  "pretokenizer": "atom",
+  "vocab": ["<pad>", "<unk>", "<bos>", "<eos>", "c", "C", "..."],
+  "merges": [[4, 4, 57], [5, 5, 58]]
+}
+```
+
+`vocab` lists token strings (the index is the token ID); `merges` lists
+`[left_id, right_id, merged_id]` in priority order; `pretokenizer` is `atom`,
+`char` or `byte`.
 
 ---
 
@@ -599,8 +662,10 @@ print(merges[:3])  # First 3 merge rules
 
 #### Pickle Support
 
-Every tokenizer class supports Python's pickle protocol. Pickle is the only way
-to persist a `ByteBPETokenizer`.
+Every tokenizer class supports Python's pickle protocol, which multiprocessing
+also relies on. To store a tokenizer on disk, prefer
+[`save` / `from_file`](#tokenizer-file): the file is readable JSON and, unlike a
+pickle, safe to load from an untrusted source.
 
 ```python
 import pickle

@@ -68,15 +68,17 @@ learned merges.
 
 How each class can be saved:
 
-| Class              | SMILESPE vocabulary file | HuggingFace `tokenizer.json` | pickle |
-|--------------------|--------------------------|------------------------------|--------|
-| `CharTokenizer`    | —                        | yes                          | yes    |
-| `AtomTokenizer`    | —                        | yes                          | yes    |
-| `CharBPETokenizer` | yes                      | yes                          | yes    |
-| `SmilesTokenizer`  | yes                      | —                            | yes    |
-| `ByteBPETokenizer` | —                        | —                            | yes    |
+| Class              | `save` / `from_file` | SMILESPE vocabulary file | HuggingFace `tokenizer.json` | pickle |
+|--------------------|----------------------|--------------------------|------------------------------|--------|
+| `CharTokenizer`    | yes                  | —                        | yes                          | yes    |
+| `AtomTokenizer`    | yes                  | —                        | yes                          | yes    |
+| `CharBPETokenizer` | yes                  | yes                      | yes                          | yes    |
+| `SmilesTokenizer`  | yes                  | yes                      | —                            | yes    |
+| `ByteBPETokenizer` | yes                  | —                        | —                            | yes    |
 
-Unsupported formats raise `NotImplementedError`.
+Unsupported formats raise `NotImplementedError`. Use `save()` / `from_file()` to
+store a tokenizer alongside a trained model: it restores identical token IDs. A
+SMILESPE vocabulary file holds merge rules only, so loading one assigns new IDs.
 
 ## Basic Usage
 
@@ -210,9 +212,20 @@ print(merges[:3])  # First 3 merge rules
 
 ## Serialization
 
+### Saving to a File
+
+`save()` writes the complete tokenizer to a JSON file; `from_file()` restores it
+with identical token IDs:
+
+```python
+tokenizer.save("tokenizer.json")
+restored = rustmolbpe.SmilesTokenizer.from_file("tokenizer.json")
+assert tokenizer.encode("CCO") == restored.encode("CCO")
+```
+
 ### Pickle Support
 
-Tokenizers can be pickled for saving or multiprocessing:
+Tokenizers can also be pickled, e.g. for multiprocessing:
 
 ```python
 import pickle

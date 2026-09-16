@@ -12,6 +12,7 @@ A high-performance BPE (Byte Pair Encoding) tokenizer for molecular SMILES writt
 - **Fast training**: Parallel processing with Rayon for efficient training on large molecular datasets
 - **Streaming support**: Train on datasets of any size with configurable buffer sizes
 - **SMILESPE compatibility**: Load and save vocabularies in SMILESPE format
+- **Lossless save/load**: `save()` / `from_file()` persist any tokenizer with identical token IDs
 - **HuggingFace interop**: Export to / import from the `tokenizers` `tokenizer.json` format for use with `transformers`
 - **Python bindings**: Seamless integration with Python via PyO3
 
@@ -81,9 +82,12 @@ print(smiles)  # "CCO"
 # Batch encode (parallelized)
 all_ids = tokenizer.batch_encode(["CCO", "c1ccccc1", "CC(=O)O"])
 
-# Save/load vocabulary
+# Save and reload the complete tokenizer (identical token IDs)
+tokenizer.save("tokenizer.json")
+tokenizer = rustmolbpe.SmilesTokenizer.from_file("tokenizer.json")
+
+# Or exchange merge rules in the SMILESPE format (IDs are reassigned on load)
 tokenizer.save_vocabulary("my_vocab.txt")
-tokenizer.load_vocabulary("my_vocab.txt")
 ```
 
 ## Tokenizers
@@ -131,7 +135,7 @@ the 256 byte values (`base_vocab_size == 260`, including the 4 special tokens),
 so any input is representable: it never emits `<unk>` and encode/decode is a
 guaranteed lossless round-trip. SMILESPE and HuggingFace file I/O are not
 supported (those formats store chemically-readable tokens, not raw bytes) — use
-`pickle` to persist a byte-level tokenizer.
+`save()` / `from_file()` to persist a byte-level tokenizer.
 
 ### Comparing tokenizers on ChEMBL
 
@@ -261,6 +265,13 @@ class SmilesTokenizer:
 
     def save_vocabulary(self, path: str) -> None:
         """Save vocabulary to SMILESPE format file."""
+
+    def save(self, path: str) -> None:
+        """Save the complete tokenizer to a lossless JSON file."""
+
+    @classmethod
+    def from_file(cls, path: str) -> "SmilesTokenizer":
+        """Load a tokenizer saved with save() (identical token IDs)."""
 
     def encode(self, smiles: str, add_special_tokens: bool = False) -> List[int]:
         """Encode a SMILES string to token IDs.
@@ -402,6 +413,11 @@ c 1
 ```
 
 Each line contains two space-separated tokens representing a merge operation.
+
+The file stores merge rules only, in priority order. Loading it assigns token
+IDs that generally differ from the tokenizer that saved it, and base tokens that
+never took part in a merge are not included. To persist a tokenizer together
+with a trained model, use `save()` / `from_file()`, which restores identical IDs.
 
 ## HuggingFace Interop
 

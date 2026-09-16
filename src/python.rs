@@ -415,5 +415,5 @@ define_tokenizer!(
      merges learned by frequency during training. The base alphabet is always\n\
      the 256 byte values, so every input is representable and no `<unk>` token\n\
      is ever produced. SMILESPE and HuggingFace file I/O are not supported;\n\
-     use pickle to persist a byte-level tokenizer."
+     use `save` / `from_file` to persist a byte-level tokenizer."
 );

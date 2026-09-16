@@ -73,6 +73,12 @@ class _BaseTokenizer:
     def load_vocabulary(self, path: str) -> None:
         """Load vocabulary from a SMILESPE-format file.
 
+        The SMILESPE format stores merge rules only, in priority order. Token IDs
+        are assigned on load and generally differ from the tokenizer that saved
+        the file, and base tokens that never took part in a merge are not
+        included. Use :meth:`save` / :meth:`from_file` to persist a tokenizer
+        with identical IDs.
+
         Args:
             path: Path to vocabulary file
 
@@ -84,6 +90,10 @@ class _BaseTokenizer:
 
     def save_vocabulary(self, path: str) -> None:
         """Save vocabulary to a SMILESPE-format file.
+
+        Writes merge rules in priority order. Token IDs, and base tokens that
+        never took part in a merge, are not stored; use :meth:`save` to persist
+        a tokenizer with identical IDs.
 
         Args:
             path: Path to save vocabulary file
@@ -516,8 +526,8 @@ class ByteBPETokenizer(_BaseTokenizer):
 
     ``base_vocab_size`` is therefore always 260 (4 special tokens + 256 bytes)
     once trained. SMILESPE and HuggingFace file I/O are not supported (the
-    formats store chemically-readable tokens, not raw bytes); use ``pickle`` to
-    persist a byte-level tokenizer. :meth:`load_vocabulary`,
+    formats store chemically-readable tokens, not raw bytes); use :meth:`save` /
+    :meth:`from_file` to persist a byte-level tokenizer. :meth:`load_vocabulary`,
     :meth:`save_vocabulary`, :meth:`save_huggingface` and
     :meth:`from_huggingface` raise ``NotImplementedError``.
 

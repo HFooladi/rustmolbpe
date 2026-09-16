@@ -149,13 +149,13 @@ impl TokenizerCore {
 
     /// Byte-level BPE uses raw-byte tokens that the SMILESPE text format
     /// (designed for chemically-readable tokens) cannot meaningfully represent.
-    /// Pickle is the persistence path for a byte-level tokenizer instead.
+    /// `save` / `from_file` is the persistence path for a byte-level tokenizer instead.
     fn reject_byte_level_vocab_io(&self, method: &str) -> PyResult<()> {
         if self.pretokenizer.kind() == PreTokenizerKind::Byte {
             Err(pyo3::exceptions::PyNotImplementedError::new_err(format!(
                 "{method} is not supported for ByteBPETokenizer; the SMILESPE \
                  vocabulary format stores chemically-readable tokens, not raw \
-                 bytes. Use pickle to persist a byte-level tokenizer."
+                 bytes. Use save() / from_file() to persist a byte-level tokenizer."
             )))
         } else {
             Ok(())
@@ -196,7 +196,7 @@ impl TokenizerCore {
             return Err(pyo3::exceptions::PyNotImplementedError::new_err(
                 "save_huggingface is not yet supported for ByteBPETokenizer. Byte-level \
                  BPE maps to HuggingFace's ByteLevel pre-tokenizer; this export is a \
-                 planned roadmap item. Use pickle to persist the tokenizer.",
+                 planned roadmap item. Use save() / from_file() to persist the tokenizer.",
             ));
         }
         let json = crate::huggingface::to_hf_json(self)?;

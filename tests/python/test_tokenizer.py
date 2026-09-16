@@ -708,6 +708,33 @@ class TestPickleSupport:
         assert results == expected
 
 
+class TestPickleMergeOrder:
+    """Pickle keeps merge priority order; older pickles still restore."""
+
+    def test_pickle_of_loaded_vocab_keeps_merge_order(self):
+        import pickle
+        import rustmolbpe
+        tok = rustmolbpe.SmilesTokenizer()
+        tok.load_vocabulary(_CHEMBL36_VOCAB)
+        restored = pickle.loads(pickle.dumps(tok))
+        assert restored.get_merges() == tok.get_merges()
+
+    def test_state_without_flag_is_ordered_by_merged_id(self):
+        """Pickles from rustmolbpe <= 0.4.0 list merges in arbitrary order."""
+        import rustmolbpe
+        tok = rustmolbpe.CharBPETokenizer()
+        tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=300, min_frequency=1)
+        _cls, _args, state = tok.__reduce__()
+        legacy_state = dict(state)
+        legacy_state.pop("merges_ordered", None)
+        legacy_state["merges"] = list(reversed(legacy_state["merges"]))
+
+        legacy = rustmolbpe.CharBPETokenizer()
+        legacy.__setstate__(legacy_state)
+        # A trained tokenizer's merged IDs follow learning order.
+        assert legacy.get_merges() == tok.get_merges()
+
+
 class TestCallableInterface:
     """Tests for __call__ (HuggingFace-compatible) interface."""
 

@@ -5,6 +5,8 @@
 //!   `pretokenizer` key; they are always atom-level, so it defaults to `"atom"`.
 //! - `version = 2` - current format. Carries a `pretokenizer` tag (`"atom"` or
 //!   `"char"`) so a pickle can only be restored into a matching tokenizer class.
+//!   States written after rustmolbpe 0.4.0 also carry `merges_ordered = True`:
+//!   `merges` is in priority order. States without it are ordered by merged token ID.
 
 use ahash::AHashMap;
 use compact_str::CompactString;
@@ -34,6 +36,9 @@ pub(crate) fn create_pickle_state<'py>(
     // Serialize merges as a list of ((left_id, right_id), merged_id) tuples.
     let merges_list: Vec<((u32, u32), u32)> = core.merges.clone();
     state.set_item("merges", merges_list)?;
+
+    // `merges` is in priority order; readers without this flag sort by merged ID.
+    state.set_item("merges_ordered", true)?;
 
     // Pre-tokenizer granularity tag - guards against cross-class unpickling.
     state.set_item("pretokenizer", core.pretokenizer.kind().as_tag())?;
@@ -101,13 +106,20 @@ pub(crate) fn restore_into_core(
         id_to_atom.push(compact_atom);
     }
 
-    // Restore merges. Pickled merge lists are in hash-map order, so sort by
-    // merged token ID (the learning order of a trained tokenizer).
+    // Restore merges. Pickles with `merges_ordered` list them in priority order.
+    // Older pickles (rustmolbpe <= 0.4.0) used hash-map order; for those, merged
+    // token ID order is the best reconstruction (exact for trained tokenizers).
     let mut merges: Vec<((u32, u32), u32)> = state
         .get_item("merges")?
         .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Missing 'merges' in pickle state"))?
         .extract()?;
-    merges.sort_by_key(|&(_, merged_id)| merged_id);
+    let merges_ordered: bool = match state.get_item("merges_ordered")? {
+        Some(value) => value.extract()?,
+        None => false,
+    };
+    if !merges_ordered {
+        merges.sort_by_key(|&(_, merged_id)| merged_id);
+    }
 
     core.id_to_atom = id_to_atom;
     core.atom_to_id = atom_to_id;
@@ -220,6 +232,28 @@ mod tests {
                 .unwrap_err()
                 .to_string()
                 .contains("Unsupported pickle version"));
+        });
+    }
+
+    #[test]
+    fn test_ordered_merges_flag_preserves_list_order() {
+        pyo3::Python::initialize();
+        Python::attach(|py| {
+            let mut core = TokenizerCore::new(PreTokenizerKind::Char, true);
+            for tok in ["C", "O", "CO", "CC"] {
+                let id = core.id_to_atom.len() as u32;
+                core.id_to_atom.push(CompactString::from(tok));
+                core.atom_to_id.insert(CompactString::from(tok), id);
+            }
+            // Priority order differs from merged-ID order.
+            core.merges.push(((4, 4), 7)); // C + C -> CC
+            core.merges.push(((4, 5), 6)); // C + O -> CO
+
+            let cls = py.get_type::<PyDict>();
+            let (_, _, state) = create_pickle_state(py, cls, &core).unwrap();
+            let mut restored = TokenizerCore::new(PreTokenizerKind::Char, true);
+            restore_into_core(&mut restored, &state).unwrap();
+            assert_eq!(restored.merges, vec![((4, 4), 7), ((4, 5), 6)]);
         });
     }
 }

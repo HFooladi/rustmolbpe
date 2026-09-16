@@ -62,13 +62,13 @@ Work already shipped. Kept here for context; see [CHANGELOG.md](CHANGELOG.md) fo
 
 ### Examples refresh
 The `examples/` scripts predate the tokenizer ladder and `save()` / `from_file()`, and only run from the repository root.
-- [ ] 🟢 Examples run from any directory (pre-trained vocabulary path resolved relative to the script, with a clear message when it is missing)
-- [ ] 🟢 `train_tokenizer.py` persists with `save()` / `from_file()` so token IDs match; SMILESPE export shown separately as the interop format
-- [ ] 🟢 `compare_tokenizers.py` — all five tokenizers on the same molecules (token counts, `<unk>` behavior)
-- [ ] 🟢 `persistence_and_interop.py` — `save()` / `from_file()`, pickle and multiprocessing, HuggingFace export
-- [ ] 🟢 `batch_processing.py` benchmarks a batch large enough to show the parallel speedup, and shows the `tokenizer(...)` call interface
-- [ ] 🟢 `examples/README.md` index of the scripts
-- [ ] 🟢 Every example runs in CI (smoke test)
+- [x] 🟢 Examples run from any directory (pre-trained vocabulary path resolved relative to the script, with a clear message when it is missing)
+- [x] 🟢 `train_tokenizer.py` persists with `save()` / `from_file()` so token IDs match; SMILESPE export shown separately as the interop format
+- [x] 🟢 `compare_tokenizers.py` — all five tokenizers on the same molecules (token counts, `<unk>` behavior)
+- [x] 🟢 `persistence_and_interop.py` — `save()` / `from_file()`, pickle and multiprocessing, HuggingFace export
+- [x] 🟢 `batch_processing.py` times a 200,000-molecule batch against one-by-one encoding, and shows the `tokenizer(...)` call interface
+- [x] 🟢 `examples/README.md` index of the scripts
+- [x] 🟢 Every example runs in CI (smoke test)
 
 ---
 
@@ -84,7 +84,7 @@ Flexibility for non-default vocabularies, plus the lower-risk performance wins.
 
 ### Performance
 - [ ] 🟡 Configurable thread count for parallel operations
-- [ ] 🟡 Batch encoding optimizations with better memory reuse
+- [ ] 🟡 Batch encoding optimizations with better memory reuse — `batch_encode` is only ~1.6x faster than an `encode()` loop on 200k ChEMBL SMILES even on a 128-core machine, so the single-threaded input/output conversion around the parallel section likely dominates (profile first)
 - [ ] 🟡 Memory-mapped vocabulary loading for large vocabularies
 
 ---
@@ -144,7 +144,7 @@ Major features and stabilization for production readiness.
 - [ ] 🟡 Architecture documentation (BPE internals, SMILES parsing deep-dive)
 - [ ] 🟡 Performance tuning guide
 - [ ] 🟡 ML framework integration tutorials (Jupyter notebooks)
-- [ ] 🟢 `examples/` directory with common use cases (refresh planned for v0.6.0, see [Examples refresh](#examples-refresh))
+- [x] 🟢 `examples/` directory with common use cases (see [Examples refresh](#examples-refresh))
 - [ ] 🟢 Migration guides from other SMILES tokenizers
 - [ ] 🟢 FAQ section
 - [ ] 🟢 Contributing guide improvements

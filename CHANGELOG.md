@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Examples: `compare_tokenizers.py` (the five tokenizers side by side on the
+  same molecules) and `persistence_and_interop.py` (`save()` / `from_file()`,
+  pickle, multiprocessing, HuggingFace export), plus an `examples/README.md`
+  index.
+- Every example is smoke-tested by `tests/python/test_examples.py`, so examples
+  run in CI.
+
+### Changed
+
+- Examples run from any working directory and explain how to get the
+  pre-trained vocabulary when it is missing. `train_tokenizer.py` saves and
+  reloads with `save()` / `from_file()`, so token IDs match (the old SMILESPE
+  round trip printed `Match: False`); `batch_processing.py` shows the
+  `tokenizer(...)` call interface and times a 200,000-molecule batch.
+
 ## [0.5.0] - 2026-09-16
 
 ### Added

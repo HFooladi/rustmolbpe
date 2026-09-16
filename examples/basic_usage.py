@@ -6,15 +6,39 @@ This script demonstrates:
 - Encoding and decoding SMILES strings
 - Using special tokens
 - Accessing vocabulary information
+
+Usage:
+    python examples/basic_usage.py [VOCAB_PATH]
+
+VOCAB_PATH defaults to the repository's data/chembl36_vocab.txt.
 """
+
+import sys
+from pathlib import Path
 
 import rustmolbpe
 
+VOCAB_URL = "https://github.com/HFooladi/rustmolbpe/blob/main/data/chembl36_vocab.txt"
+
+
+def load_pretrained(vocab_path=None):
+    """Load the pre-trained ChEMBL 36 vocabulary into a SmilesTokenizer."""
+    default = Path(__file__).resolve().parent.parent / "data" / "chembl36_vocab.txt"
+    vocab = Path(vocab_path) if vocab_path else default
+    if not vocab.is_file():
+        sys.exit(
+            f"Pre-trained vocabulary not found: {vocab}\n"
+            "Run this example from a clone of the repository, or download "
+            f"chembl36_vocab.txt from {VOCAB_URL}\n"
+            f"and pass its path: python {Path(__file__).name} path/to/chembl36_vocab.txt"
+        )
+    tokenizer = rustmolbpe.SmilesTokenizer()
+    tokenizer.load_vocabulary(str(vocab))
+    return tokenizer
+
 
 def main():
-    # Create tokenizer and load pre-trained vocabulary
-    tokenizer = rustmolbpe.SmilesTokenizer()
-    tokenizer.load_vocabulary("data/chembl36_vocab.txt")
+    tokenizer = load_pretrained(sys.argv[1] if len(sys.argv) > 1 else None)
 
     print("=" * 60)
     print("rustmolbpe Basic Usage Example")
@@ -22,7 +46,7 @@ def main():
 
     # Vocabulary info
     print(f"\nVocabulary size: {tokenizer.vocab_size}")
-    print(f"Base atoms: {tokenizer.base_vocab_size}")
+    print(f"Base tokens: {tokenizer.base_vocab_size}")
     print(f"Learned merges: {tokenizer.num_merges}")
 
     # Special tokens
@@ -57,9 +81,10 @@ def main():
 
         print(f"\n{name}: {smiles}")
         print(f"  Token IDs: {ids}")
+        print(f"  Tokens: {[tokenizer.id_to_token(i) for i in ids]}")
         print(f"  With BOS/EOS: {ids_special}")
         print(f"  Decoded: {decoded}")
-        print(f"  Tokens: {len(ids)} | Compression: {len(smiles)/len(ids):.2f} chars/token")
+        print(f"  {len(ids)} tokens | {len(smiles) / len(ids):.2f} chars/token")
 
     # Atom-level tokenization
     print("\n" + "-" * 60)
@@ -83,10 +108,9 @@ def main():
 
     # Bidirectional lookup
     token = "CC"
-    if token in [t for t, _ in vocab]:
-        token_id = tokenizer.token_to_id(token)
-        print(f"\nToken '{token}' -> ID {token_id}")
-        print(f"ID {token_id} -> Token '{tokenizer.id_to_token(token_id)}'")
+    token_id = tokenizer.token_to_id(token)
+    print(f"\nToken '{token}' -> ID {token_id}")
+    print(f"ID {token_id} -> Token '{tokenizer.id_to_token(token_id)}'")
 
 
 if __name__ == "__main__":

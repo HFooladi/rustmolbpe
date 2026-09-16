@@ -90,6 +90,9 @@ tokenizer = rustmolbpe.SmilesTokenizer.from_file("smiles_tokenizer.json")
 tokenizer.save_vocabulary("my_vocab.txt")
 ```
 
+More runnable scripts, including a side-by-side comparison of the five
+tokenizers, are in [`examples/`](examples/README.md).
+
 ## Tokenizers
 
 `rustmolbpe` provides five tokenizers spanning a ladder from simplest to most

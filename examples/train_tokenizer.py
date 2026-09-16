@@ -4,13 +4,18 @@
 This script demonstrates:
 - Training a BPE tokenizer from scratch
 - Using iterators for streaming large datasets
-- Saving and loading vocabularies
+- Saving and reloading the trained tokenizer with identical token IDs
+- Exporting merge rules in the SMILESPE format
 - Comparing compression ratios
+
+Runs anywhere: the training data is included in the script.
 """
 
-import rustmolbpe
+import os
+import tempfile
 import time
 
+import rustmolbpe
 
 # Sample SMILES dataset (drug-like molecules)
 SAMPLE_SMILES = [
@@ -53,7 +58,8 @@ SAMPLE_SMILES = [
 def smiles_generator(smiles_list, repeat=100):
     """Generator that yields SMILES strings.
 
-    In real use, this would read from a file.
+    In real use, this would read from a file, one SMILES per line, so the
+    dataset never has to fit in memory.
     """
     for _ in range(repeat):
         for smiles in smiles_list:
@@ -77,7 +83,8 @@ def train_example():
     print(f"\nTraining on {total_smiles} SMILES...")
     print(f"Target vocab size: {vocab_size}")
 
-    # Train
+    # Train. min_frequency is the minimum number of times a pair must occur
+    # across the corpus to be merged.
     start = time.perf_counter()
     tokenizer.train_from_iterator(
         smiles_generator(SAMPLE_SMILES, repeat=100),
@@ -87,10 +94,11 @@ def train_example():
     elapsed = time.perf_counter() - start
 
     print(f"Training completed in {elapsed:.2f}s")
-    print(f"\nFinal vocabulary:")
+    print("\nFinal vocabulary:")
     print(f"  Total size: {tokenizer.vocab_size}")
-    print(f"  Base atoms: {tokenizer.base_vocab_size}")
+    print(f"  Base tokens: {tokenizer.base_vocab_size}")
     print(f"  Merges: {tokenizer.num_merges}")
+    print(f"  First 5 merges (learning order): {tokenizer.get_merges()[:5]}")
 
     return tokenizer
 
@@ -130,53 +138,44 @@ def compression_analysis(tokenizer):
     print(f"{'Average':<40} {'':<8} {'':<8} {avg_ratio:<8.2f}")
 
 
-def save_load_example(tokenizer):
-    """Demonstrate saving and loading vocabulary."""
+def save_and_reload(tokenizer):
+    """Persist the trained tokenizer and load it back."""
     print("\n" + "=" * 60)
-    print("Save/Load Vocabulary")
+    print("Saving and Reloading")
     print("=" * 60)
 
-    import tempfile
-    import os
+    with tempfile.TemporaryDirectory() as tmp:
+        # save() writes the complete tokenizer (vocabulary with its IDs, merges,
+        # granularity) to a JSON file; from_file() restores it exactly. Use this
+        # to keep a tokenizer together with a model trained on its token IDs.
+        path = os.path.join(tmp, "smiles_tokenizer.json")
+        tokenizer.save(path)
+        print(f"\nSaved tokenizer to {os.path.basename(path)} ({os.path.getsize(path):,} bytes)")
 
-    # Save to temp file
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-        vocab_path = f.name
+        restored = rustmolbpe.SmilesTokenizer.from_file(path)
 
-    try:
-        # Save
-        tokenizer.save_vocabulary(vocab_path)
-        print(f"\nSaved vocabulary to: {vocab_path}")
-
-        # Check file size
-        size = os.path.getsize(vocab_path)
-        print(f"File size: {size} bytes")
-
-        # Show first few lines
-        print("\nFirst 5 merge rules:")
-        with open(vocab_path) as f:
-            for i, line in enumerate(f):
-                if i >= 5:
-                    break
-                print(f"  {line.strip()}")
-
-        # Load into new tokenizer
-        new_tokenizer = rustmolbpe.SmilesTokenizer()
-        new_tokenizer.load_vocabulary(vocab_path)
-        print(f"\nLoaded vocabulary: {new_tokenizer.vocab_size} tokens")
-
-        # Verify
         test_smiles = "CC(=O)Nc1ccc(O)cc1"
         original_ids = tokenizer.encode(test_smiles)
-        loaded_ids = new_tokenizer.encode(test_smiles)
-
+        restored_ids = restored.encode(test_smiles)
+        identical = (
+            restored_ids == original_ids
+            and restored.get_vocabulary() == tokenizer.get_vocabulary()
+        )
         print(f"\nVerification with '{test_smiles}':")
         print(f"  Original: {original_ids}")
-        print(f"  Loaded:   {loaded_ids}")
-        print(f"  Match: {original_ids == loaded_ids}")
+        print(f"  Restored: {restored_ids}")
+        print(f"Token IDs identical after save()/from_file(): {identical}")
 
-    finally:
-        os.unlink(vocab_path)
+        # save_vocabulary() writes merge rules in the SMILESPE text format, for
+        # exchanging vocabularies with other tools. It does not store token IDs:
+        # loading the file assigns new IDs, so prefer save()/from_file() for a
+        # tokenizer tied to a trained model.
+        merges_path = os.path.join(tmp, "merges.txt")
+        tokenizer.save_vocabulary(merges_path)
+        print(f"\nExported SMILESPE merge rules to {os.path.basename(merges_path)}; first 5 lines:")
+        with open(merges_path) as f:
+            for _ in range(5):
+                print(f"  {f.readline().rstrip()}")
 
 
 def main():
@@ -186,8 +185,8 @@ def main():
     # Analyze compression
     compression_analysis(tokenizer)
 
-    # Save/load demo
-    save_load_example(tokenizer)
+    # Persist it
+    save_and_reload(tokenizer)
 
     print("\n" + "=" * 60)
     print("Done!")

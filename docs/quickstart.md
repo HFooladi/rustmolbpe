@@ -274,4 +274,4 @@ is called on. See the [API Reference](api.md#huggingface-interop) for details.
 ## Next Steps
 
 - See [API Reference](api.md) for complete documentation
-- Check `examples/` directory for more detailed examples
+- Run the [examples](https://github.com/HFooladi/rustmolbpe/tree/main/examples): self-contained scripts covering the five tokenizers, training, batching and saving

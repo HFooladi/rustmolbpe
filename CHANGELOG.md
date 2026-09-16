@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Python 3.14 is now tested in CI and listed in the package classifiers
+  (`cp314` wheels already shipped with 0.4.0).
+
+### Removed
+
+- Python 3.9 support. Python 3.9 reached end-of-life in October 2025;
+  `requires-python` is now `>=3.10` and no `cp39` wheels are built.
+
 ## [0.4.0] - 2026-09-16
 
 ### Added

@@ -125,7 +125,7 @@ Example: `c c` means merge `c` + `c` into `cc`.
 
 ## CI/CD
 
-- GitHub Actions runs tests on Python 3.9-3.13
+- GitHub Actions runs tests on Python 3.10-3.14
 - Linting with `cargo fmt --check` and `cargo clippy`
 - Code coverage with Codecov (Rust via cargo-tarpaulin, Python via pytest-cov)
 - PyPI publishing workflow on release (`publish.yml`)

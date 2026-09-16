@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Python 3.14 is now tested in CI and listed in the package classifiers
   (`cp314` wheels already shipped with 0.4.0).
+- `tokenizer_stats.py` now also sweeps `ByteBPETokenizer` (cached as a pickle,
+  since it has no vocabulary-file format) and reports a `num_merges` column.
+  `vocab_size` includes the base alphabet, which is always 256 bytes for
+  ByteBPE, so at equal `vocab_size` it learns fewer merges than CharBPE.
 
 ### Removed
 

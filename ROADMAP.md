@@ -60,6 +60,16 @@ Work already shipped. Kept here for context; see [CHANGELOG.md](CHANGELOG.md) fo
 - [ ] 🔴 Unigram LM tokenizer — probabilistic segmentation (EM training + Viterbi decoding), the one tokenization family not yet covered
 - [ ] 🟡 HuggingFace export for `ByteBPETokenizer` (byte-level BPE → HF `ByteLevel` pre-tokenizer + `BPE` model)
 
+### Examples refresh
+The `examples/` scripts predate the tokenizer ladder and `save()` / `from_file()`, and only run from the repository root.
+- [ ] 🟢 Examples run from any directory (pre-trained vocabulary path resolved relative to the script, with a clear message when it is missing)
+- [ ] 🟢 `train_tokenizer.py` persists with `save()` / `from_file()` so token IDs match; SMILESPE export shown separately as the interop format
+- [ ] 🟢 `compare_tokenizers.py` — all five tokenizers on the same molecules (token counts, `<unk>` behavior)
+- [ ] 🟢 `persistence_and_interop.py` — `save()` / `from_file()`, pickle and multiprocessing, HuggingFace export
+- [ ] 🟢 `batch_processing.py` benchmarks a batch large enough to show the parallel speedup, and shows the `tokenizer(...)` call interface
+- [ ] 🟢 `examples/README.md` index of the scripts
+- [ ] 🟢 Every example runs in CI (smoke test)
+
 ---
 
 ## v0.7.0 — Custom Special Tokens & Performance
@@ -134,7 +144,7 @@ Major features and stabilization for production readiness.
 - [ ] 🟡 Architecture documentation (BPE internals, SMILES parsing deep-dive)
 - [ ] 🟡 Performance tuning guide
 - [ ] 🟡 ML framework integration tutorials (Jupyter notebooks)
-- [ ] 🟢 `examples/` directory with common use cases
+- [ ] 🟢 `examples/` directory with common use cases (refresh planned for v0.6.0, see [Examples refresh](#examples-refresh))
 - [ ] 🟢 Migration guides from other SMILES tokenizers
 - [ ] 🟢 FAQ section
 - [ ] 🟢 Contributing guide improvements

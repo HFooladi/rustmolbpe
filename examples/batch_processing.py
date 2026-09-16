@@ -6,10 +6,41 @@ This script demonstrates:
 - Padding sequences for ML models
 - Creating attention masks
 - Different padding strategies
+- The HuggingFace-style call interface
+
+Usage:
+    python examples/batch_processing.py [VOCAB_PATH]
+
+VOCAB_PATH defaults to the repository's data/chembl36_vocab.txt.
 """
 
-import rustmolbpe
+import sys
 import time
+from pathlib import Path
+
+import rustmolbpe
+
+VOCAB_URL = "https://github.com/HFooladi/rustmolbpe/blob/main/data/chembl36_vocab.txt"
+
+# Size of the batch used for the speed comparison: large enough that the timing
+# reflects encoding work rather than per-call noise.
+BENCHMARK_SIZE = 200_000
+
+
+def load_pretrained(vocab_path=None):
+    """Load the pre-trained ChEMBL 36 vocabulary into a SmilesTokenizer."""
+    default = Path(__file__).resolve().parent.parent / "data" / "chembl36_vocab.txt"
+    vocab = Path(vocab_path) if vocab_path else default
+    if not vocab.is_file():
+        sys.exit(
+            f"Pre-trained vocabulary not found: {vocab}\n"
+            "Run this example from a clone of the repository, or download "
+            f"chembl36_vocab.txt from {VOCAB_URL}\n"
+            f"and pass its path: python {Path(__file__).name} path/to/chembl36_vocab.txt"
+        )
+    tokenizer = rustmolbpe.SmilesTokenizer()
+    tokenizer.load_vocabulary(str(vocab))
+    return tokenizer
 
 
 def main():
@@ -18,8 +49,7 @@ def main():
     print("=" * 60)
 
     # Load tokenizer
-    tokenizer = rustmolbpe.SmilesTokenizer()
-    tokenizer.load_vocabulary("data/chembl36_vocab.txt")
+    tokenizer = load_pretrained(sys.argv[1] if len(sys.argv) > 1 else None)
     print(f"\nLoaded vocabulary with {tokenizer.vocab_size} tokens")
 
     # Sample batch of molecules
@@ -64,7 +94,7 @@ def main():
 
     for i, (ids, mask) in enumerate(zip(result["input_ids"], result["attention_mask"])):
         real_len = sum(mask)
-        print(f"  [{i}] len={real_len}: {ids[:8]}{'...' if len(ids) > 8 else ''}")
+        print(f"  [{i}] len={real_len}: {ids}")
 
     # =========================================================================
     # Fixed length with truncation
@@ -86,6 +116,7 @@ def main():
         smiles_batch, result["input_ids"], result["attention_mask"]
     ):
         print(f"  {smiles[:20]:<20} -> {ids} mask={mask}")
+    print("  Note: truncation cuts the end of a long sequence, including its EOS token.")
 
     # =========================================================================
     # Left padding (for autoregressive models)
@@ -127,37 +158,51 @@ def main():
 
     # Pad separately
     padded = tokenizer.pad(sequences, max_length=10, return_attention_mask=True)
-    print(f"\nPadded to length 10:")
+    print("\nPadded to length 10:")
     for ids, mask in zip(padded["input_ids"], padded["attention_mask"]):
         print(f"  IDs:  {ids}")
         print(f"  Mask: {mask}")
         print()
 
     # =========================================================================
-    # Performance benchmark
+    # HuggingFace-style call interface
     # =========================================================================
     print("-" * 60)
-    print("Performance Benchmark")
+    print("Call interface (tokenizer(...), like HuggingFace tokenizers)")
     print("-" * 60)
 
-    # Generate larger batch
-    large_batch = smiles_batch * 1000  # 6000 SMILES
+    single = tokenizer("CCO", add_special_tokens=True)
+    print(f"\ntokenizer('CCO', add_special_tokens=True):\n  {single}")
 
-    # Sequential encoding
+    batch = tokenizer(smiles_batch[:3], padding=True, add_special_tokens=True)
+    print("\ntokenizer([...], padding=True, add_special_tokens=True):")
+    print(f"  input_ids:      {batch['input_ids']}")
+    print(f"  attention_mask: {batch['attention_mask']}")
+
+    # =========================================================================
+    # Performance comparison
+    # =========================================================================
+    print("\n" + "-" * 60)
+    print("Performance: one-by-one vs parallel batch encoding")
+    print("-" * 60)
+
+    large_batch = (smiles_batch * (BENCHMARK_SIZE // len(smiles_batch) + 1))[:BENCHMARK_SIZE]
+
+    # One call per molecule
     start = time.perf_counter()
     for smiles in large_batch:
         tokenizer.encode(smiles)
     seq_time = time.perf_counter() - start
 
-    # Batch encoding (parallel)
+    # One call for the whole batch (parallelized across CPU cores)
     start = time.perf_counter()
     tokenizer.batch_encode(large_batch)
     batch_time = time.perf_counter() - start
 
-    print(f"\nEncoding {len(large_batch)} SMILES:")
-    print(f"  Sequential: {seq_time:.3f}s ({len(large_batch)/seq_time:,.0f} SMILES/sec)")
-    print(f"  Batch:      {batch_time:.3f}s ({len(large_batch)/batch_time:,.0f} SMILES/sec)")
-    print(f"  Speedup:    {seq_time/batch_time:.1f}x")
+    print(f"\nEncoding {len(large_batch):,} SMILES:")
+    print(f"  encode() in a loop: {seq_time:.3f}s ({len(large_batch) / seq_time:,.0f} SMILES/sec)")
+    print(f"  batch_encode():     {batch_time:.3f}s ({len(large_batch) / batch_time:,.0f} SMILES/sec)")
+    print(f"  Speedup: {seq_time / batch_time:.1f}x (varies with CPU cores and molecule length)")
 
     print("\n" + "=" * 60)
     print("Done!")

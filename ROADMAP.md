@@ -60,6 +60,16 @@ Work already shipped. Kept here for context; see [CHANGELOG.md](CHANGELOG.md) fo
 - [ ] 🔴 Unigram LM tokenizer — probabilistic segmentation (EM training + Viterbi decoding), the one tokenization family not yet covered
 - [ ] 🟡 HuggingFace export for `ByteBPETokenizer` (byte-level BPE → HF `ByteLevel` pre-tokenizer + `BPE` model)
 
+### Examples refresh
+The `examples/` scripts predate the tokenizer ladder and `save()` / `from_file()`, and only run from the repository root.
+- [x] 🟢 Examples run from any directory (pre-trained vocabulary path resolved relative to the script, with a clear message when it is missing)
+- [x] 🟢 `train_tokenizer.py` persists with `save()` / `from_file()` so token IDs match; SMILESPE export shown separately as the interop format
+- [x] 🟢 `compare_tokenizers.py` — all five tokenizers on the same molecules (token counts, `<unk>` behavior)
+- [x] 🟢 `persistence_and_interop.py` — `save()` / `from_file()`, pickle and multiprocessing, HuggingFace export
+- [x] 🟢 `batch_processing.py` times a 200,000-molecule batch against one-by-one encoding, and shows the `tokenizer(...)` call interface
+- [x] 🟢 `examples/README.md` index of the scripts
+- [x] 🟢 Every example runs in CI (smoke test)
+
 ---
 
 ## v0.7.0 — Custom Special Tokens & Performance
@@ -74,7 +84,7 @@ Flexibility for non-default vocabularies, plus the lower-risk performance wins.
 
 ### Performance
 - [ ] 🟡 Configurable thread count for parallel operations
-- [ ] 🟡 Batch encoding optimizations with better memory reuse
+- [ ] 🟡 Batch encoding optimizations with better memory reuse — `batch_encode` is only ~1.6x faster than an `encode()` loop on 200k ChEMBL SMILES even on a 128-core machine, so the single-threaded input/output conversion around the parallel section likely dominates (profile first)
 - [ ] 🟡 Memory-mapped vocabulary loading for large vocabularies
 
 ---
@@ -134,7 +144,7 @@ Major features and stabilization for production readiness.
 - [ ] 🟡 Architecture documentation (BPE internals, SMILES parsing deep-dive)
 - [ ] 🟡 Performance tuning guide
 - [ ] 🟡 ML framework integration tutorials (Jupyter notebooks)
-- [ ] 🟢 `examples/` directory with common use cases
+- [x] 🟢 `examples/` directory with common use cases (see [Examples refresh](#examples-refresh))
 - [ ] 🟢 Migration guides from other SMILES tokenizers
 - [ ] 🟢 FAQ section
 - [ ] 🟢 Contributing guide improvements

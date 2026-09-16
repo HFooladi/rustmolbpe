@@ -185,6 +185,7 @@ Common CI issues:
 - `preprocess_pubchem.py` - Preprocess raw PubChem data for training
 - `benchmark.py` - Performance benchmarking
 - `tokenizer_stats.py` - Token-count statistics for the tokenizers on ChEMBL 36 (needs the `stats` extra: `uv pip install numpy matplotlib`)
+- `examples/` - Self-contained introductory scripts (index in `examples/README.md`), smoke-tested by `tests/python/test_examples.py`
 
 ## Gotchas
 
@@ -198,3 +199,4 @@ Common CI issues:
 - `TokenizerCore::merges` is an ordered `Vec<(Pair, u32)>` in merge priority order — keep it a list; `get_merges`, `save_vocabulary`, HuggingFace export and pickle rely on that order (never re-derive it by sorting on token ID)
 - Adding a `PreTokenizerKind` variant makes every `match` on it (in `pretokenizer.rs`, `huggingface.rs`) non-exhaustive — the compiler will flag each one
 - `gh` is used to interact with GitHub Actions and pull requests in this environment
+- Every script in `examples/` must be listed in `_EXPECTED_OUTPUT` in `tests/python/test_examples.py` (the test fails otherwise); examples must run from any working directory

@@ -378,7 +378,8 @@ impl TokenizerCore {
     ///
     /// Builds the base vocabulary from observed pre-tokenization units, then
     /// (only when `allow_merges` is set) learns up to `vocab_size - base` BPE
-    /// merges. For no-merge tokenizers this is purely a base-vocabulary pass.
+    /// merges, merging only pairs whose count is at least `min_frequency`. For
+    /// no-merge tokenizers this is purely a base-vocabulary pass.
     pub(crate) fn train_from_iterator(
         &mut self,
         py: Python<'_>,
@@ -529,14 +530,12 @@ impl TokenizerCore {
         let mut cvec = Vec::with_capacity(smiles_counts.len());
 
         for (atoms, count) in smiles_counts.into_iter() {
-            if count >= min_frequency as i32 {
-                let ids: Vec<u32> = atoms
-                    .iter()
-                    .map(|a| *self.atom_to_id.get(a).unwrap())
-                    .collect();
-                words.push(Word::new(ids));
-                cvec.push(count);
-            }
+            let ids: Vec<u32> = atoms
+                .iter()
+                .map(|a| *self.atom_to_id.get(a).unwrap())
+                .collect();
+            words.push(Word::new(ids));
+            cvec.push(count);
         }
 
         training::train_core_incremental(
@@ -546,6 +545,7 @@ impl TokenizerCore {
             words,
             cvec,
             num_merges,
+            min_frequency,
         );
         Ok(())
     }

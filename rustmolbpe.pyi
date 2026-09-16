@@ -63,7 +63,9 @@ class _BaseTokenizer:
             iterator: Iterator yielding SMILES strings
             vocab_size: Target vocabulary size (including special tokens and base units)
             buffer_size: Number of SMILES to buffer for parallel processing
-            min_frequency: Minimum frequency for a pair to be merged
+            min_frequency: Minimum number of occurrences (summed over the whole
+                corpus) a pair needs to be merged; training stops early once no
+                remaining pair reaches it
         """
         ...
 

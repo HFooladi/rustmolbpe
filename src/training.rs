@@ -17,7 +17,9 @@ use crate::word::{count_pairs_parallel, MergeJob, Word};
 /// * `id_to_atom` - Mutable reference to the ID-to-atom vector
 /// * `words` - Vector of Word structs representing unique token sequences
 /// * `counts` - Corresponding frequency counts for each word
-/// * `num_merges` - Number of merge operations to perform
+/// * `num_merges` - Maximum number of merge operations to perform
+/// * `min_frequency` - Minimum count a pair must have to be merged; training
+///   stops early once the most frequent remaining pair falls below it
 pub(crate) fn train_core_incremental(
     merges: &mut StdHashMap<Pair, u32>,
     atom_to_id: &mut AHashMap<CompactString, u32>,
@@ -25,6 +27,7 @@ pub(crate) fn train_core_incremental(
     mut words: Vec<Word>,
     counts: Vec<i32>,
     num_merges: u32,
+    min_frequency: u32,
 ) {
     log::info!("Starting BPE training: {} merges to compute", num_merges);
 
@@ -69,6 +72,19 @@ pub(crate) fn train_core_incremental(
             top.count = current as u64;
             heap.push(top);
             continue;
+        }
+
+        // Merging only ever raises counts of pairs involving the new token,
+        // which are queued fresh, so queued counts never underestimate. The
+        // first up-to-date job is therefore the most frequent remaining pair:
+        // if it is below min_frequency, no remaining pair qualifies.
+        if top.count < u64::from(min_frequency) {
+            log::info!(
+                "Stopping: most frequent remaining pair occurs {} times (min_frequency: {})",
+                top.count,
+                min_frequency
+            );
+            break;
         }
 
         // Record merge
@@ -129,4 +145,59 @@ pub(crate) fn train_core_incremental(
     }
 
     log::info!("Finished training: {} merges completed", merges_done);
+}
+
+// ============================================================================
+// RUST TESTS
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Train over the base vocabulary {C=0, O=1, N=2} and return the merged
+    /// token strings in merge order.
+    fn train(words: Vec<Vec<u32>>, counts: Vec<i32>, min_frequency: u32) -> Vec<String> {
+        let mut id_to_atom: Vec<CompactString> = ["C", "O", "N"]
+            .iter()
+            .map(|s| CompactString::from(*s))
+            .collect();
+        let mut atom_to_id: AHashMap<CompactString, u32> = id_to_atom
+            .iter()
+            .enumerate()
+            .map(|(i, a)| (a.clone(), i as u32))
+            .collect();
+        let mut merges = StdHashMap::new();
+        let base = id_to_atom.len();
+
+        train_core_incremental(
+            &mut merges,
+            &mut atom_to_id,
+            &mut id_to_atom,
+            words.into_iter().map(Word::new).collect(),
+            counts,
+            100,
+            min_frequency,
+        );
+
+        id_to_atom[base..].iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn test_min_frequency_stops_at_first_pair_below_threshold() {
+        // "CCC" x2: (C, C) occurs 4 times; after merging, (CC, C) occurs 2 times.
+        let ccc = || vec![vec![0, 0, 0]];
+        assert_eq!(train(ccc(), vec![2], 2), vec!["CC", "CCC"]);
+        assert_eq!(train(ccc(), vec![2], 4), vec!["CC"]);
+        assert!(train(ccc(), vec![2], 5).is_empty());
+    }
+
+    #[test]
+    fn test_min_frequency_sums_pair_counts_across_words() {
+        // "CCO" and "CCN" occur once each, but (C, C) occurs twice in total.
+        assert_eq!(
+            train(vec![vec![0, 0, 1], vec![0, 0, 2]], vec![1, 1], 2),
+            vec!["CC"]
+        );
+    }
 }

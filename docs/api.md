@@ -116,7 +116,7 @@ Train the tokenizer from a SMILES iterator.
 - `iterator` (Iterator[str]): Iterator yielding SMILES strings
 - `vocab_size` (int): Target vocabulary size (including special tokens and base atoms)
 - `buffer_size` (int, optional): Number of SMILES to buffer for parallel processing. Default: 8192
-- `min_frequency` (int, optional): Minimum frequency for a pair to be merged. Default: 2
+- `min_frequency` (int, optional): Minimum number of occurrences (summed over the whole corpus) a pair needs to be merged; training stops early once no remaining pair reaches it. Default: 2
 
 **Example:**
 
@@ -545,7 +545,7 @@ Check whether the tokenizer has learned (or loaded) BPE merges. Always False for
 tokenizer = rustmolbpe.SmilesTokenizer()
 print(tokenizer.is_trained())  # False
 
-tokenizer.train_from_iterator(iter(["CCO", "CCC"]), vocab_size=50, min_frequency=1)
+tokenizer.train_from_iterator(iter(["CCO", "CCC"]), vocab_size=50)
 print(tokenizer.is_trained())  # True
 ```
 
@@ -586,9 +586,7 @@ Get the learned merge rules as tuples.
 
 ```python
 tokenizer = rustmolbpe.SmilesTokenizer()
-tokenizer.train_from_iterator(
-    iter(["CCO", "CCN", "CCO", "c1ccccc1"]), vocab_size=60, min_frequency=1
-)
+tokenizer.train_from_iterator(iter(["CCO", "CCN", "CCO", "c1ccccc1"]), vocab_size=60)
 
 merges = tokenizer.get_merges()
 print(merges[:3])  # First 3 merge rules

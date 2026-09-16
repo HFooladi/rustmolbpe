@@ -9,9 +9,16 @@ This document outlines the planned improvements and future direction for rustmol
 
 ---
 
-## Completed (v0.1.0 – v0.4.0)
+## Completed (v0.1.0 – v0.5.0)
 
 Work already shipped. Kept here for context; see [CHANGELOG.md](CHANGELOG.md) for the per-release detail.
+
+### v0.5.0 — Lossless tokenizer file & training fixes
+- [x] 🟡 `save()` / `from_file()` — lossless JSON tokenizer file (full ID-ordered vocabulary, ordered merges, granularity, format version) for all five classes
+- [x] 🟡 Merge priority order preserved through SMILESPE load/save, HuggingFace export and pickle (loaded token IDs unchanged)
+- [x] 🟢 `min_frequency` is a pair-count threshold, as documented (default no longer learns zero merges on deduplicated data)
+- [x] 🟢 Python 3.10–3.14 supported and tested (3.9 dropped); CI on Node 24 actions
+- [x] 🟢 Docs site built and deployed from CI
 
 ### v0.4.0 — Byte-level BPE
 - [x] 🟡 `ByteBPETokenizer` — byte-level BPE; fixed 256-symbol base alphabet, lossless round-trip, never emits `<unk>`
@@ -38,7 +45,7 @@ Work already shipped. Kept here for context; see [CHANGELOG.md](CHANGELOG.md) fo
 
 ---
 
-## v0.5.0 — ML Framework Integration
+## v0.6.0 — ML Framework Integration
 
 **Current priority.** Make the tokenizer drop-in for ML training pipelines so users don't hand-roll glue code.
 
@@ -55,7 +62,7 @@ Work already shipped. Kept here for context; see [CHANGELOG.md](CHANGELOG.md) fo
 
 ---
 
-## v0.6.0 — Custom Special Tokens & Performance
+## v0.7.0 — Custom Special Tokens & Performance
 
 Flexibility for non-default vocabularies, plus the lower-risk performance wins.
 
@@ -72,7 +79,7 @@ Flexibility for non-default vocabularies, plus the lower-risk performance wins.
 
 ---
 
-## v0.7.0 — Vocabulary & Serialization
+## v0.8.0 — Vocabulary & Serialization
 
 Make vocabularies inspectable, verifiable, and composable.
 
@@ -81,7 +88,7 @@ Make vocabularies inspectable, verifiable, and composable.
 - [ ] 🟡 `get_statistics()` method (vocab size, merge count, token frequencies)
 - [ ] 🟡 Vocabulary merging utility (combine two vocabularies)
 - [ ] 🟡 Save/load configuration separately from vocabulary
-- [ ] 🟢 Version compatibility checking on load
+- [x] 🟢 Version compatibility checking on load (`from_file` checks the tokenizer file's `format` and `version`)
 - [ ] 🔴 `SmilesTokenizer` → HuggingFace export via a custom pre-tokenizer component (currently raises `NotImplementedError` — atom-level BPE cannot be expressed as a stock HF fast tokenizer)
 
 ---
@@ -123,7 +130,7 @@ Major features and stabilization for production readiness.
 
 ## Documentation & Community (ongoing)
 
-- [ ] 🟡 API reference site (using pdoc or mkdocs)
+- [x] 🟡 API reference site (MkDocs, deployed from CI to GitHub Pages)
 - [ ] 🟡 Architecture documentation (BPE internals, SMILES parsing deep-dive)
 - [ ] 🟡 Performance tuning guide
 - [ ] 🟡 ML framework integration tutorials (Jupyter notebooks)

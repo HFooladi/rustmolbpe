@@ -378,7 +378,8 @@ define_tokenizer!(
     true,
     "Atom-level BPE tokenizer (SMILES Pair Encoding, \"SPE\").\n\n\
      Pre-tokenizes a SMILES string into atoms, then applies BPE merges learned\n\
-     by frequency during training. This is the original rustmolbpe tokenizer."
+     by frequency during training. This is the original rustmolbpe tokenizer.\n\n\
+     Also exported as ``AtomBPETokenizer`` -- an exact alias of this class."
 );
 
 define_tokenizer!(

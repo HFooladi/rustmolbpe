@@ -1244,3 +1244,47 @@ class TestByteBPETokenizer:
         tok = self._trained()
         assert tok.encode("") == []
         assert tok.decode([]) == ""
+
+
+class TestAtomBPETokenizerAlias:
+    """AtomBPETokenizer is an exact alias of SmilesTokenizer."""
+
+    def test_alias_is_same_class(self):
+        """The two names bind to the identical class object."""
+        import rustmolbpe
+        assert rustmolbpe.AtomBPETokenizer is rustmolbpe.SmilesTokenizer
+
+    def test_alias_in_all(self):
+        """The alias is part of the public API."""
+        import rustmolbpe
+        assert "AtomBPETokenizer" in rustmolbpe.__all__
+
+    def test_alias_importable(self):
+        """The alias can be imported directly from the package."""
+        from rustmolbpe import AtomBPETokenizer, SmilesTokenizer
+        assert AtomBPETokenizer is SmilesTokenizer
+
+    def test_alias_encode_decode_roundtrip(self):
+        """A tokenizer built via the alias trains and round-trips."""
+        from rustmolbpe import AtomBPETokenizer
+        tok = AtomBPETokenizer()
+        tok.train_from_iterator(iter(["CCO", "CCC", "c1ccccc1"] * 50),
+                                vocab_size=60)
+        assert tok.decode(tok.encode("CCO")) == "CCO"
+
+    def test_alias_instance_is_smilestokenizer(self):
+        """An instance built via the alias is a SmilesTokenizer."""
+        import rustmolbpe
+        tok = rustmolbpe.AtomBPETokenizer()
+        assert isinstance(tok, rustmolbpe.SmilesTokenizer)
+        assert type(tok).__name__ == "SmilesTokenizer"
+
+    def test_alias_pickle_roundtrip(self):
+        """An instance built via the alias pickles and unpickles."""
+        import pickle
+        from rustmolbpe import AtomBPETokenizer
+        tok = AtomBPETokenizer()
+        tok.train_from_iterator(iter(["CCO", "CCC", "c1ccccc1"] * 50),
+                                vocab_size=60)
+        restored = pickle.loads(pickle.dumps(tok))
+        assert restored.encode("CCO") == tok.encode("CCO")

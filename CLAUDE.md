@@ -91,6 +91,9 @@ pre-tokenization granularity and whether BPE merges are learned:
 | `SmilesTokenizer`  | atom        | yes    | BPE on atoms ("SPE", original) |
 | `ByteBPETokenizer` | byte        | yes    | BPE on UTF-8 bytes; never UNK  |
 
+`SmilesTokenizer` is also exported as `AtomBPETokenizer` — an exact alias (same
+class object), registered via `m.add("AtomBPETokenizer", ...)` in `lib.rs`.
+
 ### Core Components
 
 - **Pre-tokenization** (`pretokenizer.rs`): `PreTokenizer` does atom-level (regex), character-level (Unicode scalar), or byte-level (UTF-8 byte) splitting; the rest of the pipeline is granularity-agnostic

@@ -38,7 +38,10 @@ Tokenize a SMILES string into atom-level tokens.
 
 ## Class: SmilesTokenizer
 
-BPE tokenizer for molecular SMILES strings.
+BPE tokenizer for molecular SMILES strings (atom-level BPE, "SPE").
+
+> **Alias:** also exported as `AtomBPETokenizer`. The two names bind to the same
+> class object — `rustmolbpe.AtomBPETokenizer is rustmolbpe.SmilesTokenizer`.
 
 ### Constructor
 

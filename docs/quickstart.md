@@ -218,8 +218,8 @@ print(merges[:3])  # First 3 merge rules
 with identical token IDs:
 
 ```python
-tokenizer.save("tokenizer.json")
-restored = rustmolbpe.SmilesTokenizer.from_file("tokenizer.json")
+tokenizer.save("smiles_tokenizer.json")
+restored = rustmolbpe.SmilesTokenizer.from_file("smiles_tokenizer.json")
 assert tokenizer.encode("CCO") == restored.encode("CCO")
 ```
 

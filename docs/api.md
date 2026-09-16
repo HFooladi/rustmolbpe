@@ -169,6 +169,10 @@ def save_vocabulary(self, path: str) -> None
 Save vocabulary to a SMILESPE-format file. Supported by `CharBPETokenizer`
 and `SmilesTokenizer`.
 
+The file stores merge rules only, in priority order. Token IDs, and base
+tokens that never took part in a merge, are not stored; use
+[`save` / `from_file`](#tokenizer-file) to persist a tokenizer with identical IDs.
+
 **Arguments:**
 
 - `path` (str): Path to save vocabulary file
@@ -193,6 +197,10 @@ token IDs, the merges in priority order, and the pre-tokenizer granularity.
 Supported by every tokenizer class. Prefer this over `save_vocabulary` to persist
 a tokenizer used by a trained model.
 
+**Arguments:**
+
+- `path` (str): Path to write the JSON file
+
 **Raises:**
 
 - `IOError`: If the file cannot be written
@@ -207,6 +215,10 @@ def from_file(cls, path: str) -> Self
 Load a tokenizer saved with `save`. Token IDs, merges and encodings are identical
 to the saved tokenizer.
 
+**Arguments:**
+
+- `path` (str): Path to a file written by `save`
+
 **Raises:**
 
 - `IOError`: If the file cannot be read
@@ -215,8 +227,8 @@ to the saved tokenizer.
 **Example:**
 
 ```python
-tokenizer.save("tokenizer.json")
-restored = rustmolbpe.SmilesTokenizer.from_file("tokenizer.json")
+tokenizer.save("smiles_tokenizer.json")
+restored = rustmolbpe.SmilesTokenizer.from_file("smiles_tokenizer.json")
 assert restored.get_vocabulary() == tokenizer.get_vocabulary()
 ```
 
@@ -235,6 +247,9 @@ assert restored.get_vocabulary() == tokenizer.get_vocabulary()
 `vocab` lists token strings (the index is the token ID); `merges` lists
 `[left_id, right_id, merged_id]` in priority order; `pretokenizer` is `atom`,
 `char` or `byte`.
+
+Readers ignore keys they do not recognize, so later releases can add optional
+fields; an incompatible change increments `version`.
 
 ---
 

@@ -83,8 +83,8 @@ print(smiles)  # "CCO"
 all_ids = tokenizer.batch_encode(["CCO", "c1ccccc1", "CC(=O)O"])
 
 # Save and reload the complete tokenizer (identical token IDs)
-tokenizer.save("tokenizer.json")
-tokenizer = rustmolbpe.SmilesTokenizer.from_file("tokenizer.json")
+tokenizer.save("smiles_tokenizer.json")
+tokenizer = rustmolbpe.SmilesTokenizer.from_file("smiles_tokenizer.json")
 
 # Or exchange merge rules in the SMILESPE format (IDs are reassigned on load)
 tokenizer.save_vocabulary("my_vocab.txt")

@@ -263,20 +263,32 @@ pub(crate) fn restore_from_hf_json(core: &mut TokenizerCore, json: &str) -> PyRe
         .map(|(id, tok)| (tok.clone(), id as u32))
         .collect();
 
-    // Rebuild merges in the file's priority order: (left_id, right_id) -> id of
-    // the concatenated token. A repeated rule keeps its first occurrence.
-    let mut merges: Vec<(Pair, u32)> = Vec::with_capacity(model.merges.len());
-    let mut seen_pairs: AHashSet<Pair> = AHashSet::new();
+    // Resolve every merge rule to (left_id, right_id) -> id of the
+    // concatenated token, in file order.
+    let mut resolved: Vec<(Pair, u32)> = Vec::with_capacity(model.merges.len());
     for merge in &model.merges {
         let (left, right) = merge.parts()?;
         let left_id = lookup(&atom_to_id, left)?;
         let right_id = lookup(&atom_to_id, right)?;
         let merged = format!("{left}{right}");
         let merged_id = lookup(&atom_to_id, &merged)?;
-        if seen_pairs.insert((left_id, right_id)) {
-            merges.push(((left_id, right_id), merged_id));
+        resolved.push(((left_id, right_id), merged_id));
+    }
+
+    // HuggingFace `tokenizers` gives a repeated (left, right) merge rule the
+    // rank of its LAST occurrence in the file (verified against tokenizers
+    // 0.23.2), the opposite of SMILESPE (`vocabulary.rs::load_vocabulary`),
+    // which keeps the FIRST occurrence. Walk in reverse recording the first
+    // (= last-in-file) occurrence of each pair, then reverse back so the
+    // surviving rules keep their relative priority order.
+    let mut seen_pairs: AHashSet<Pair> = AHashSet::new();
+    let mut merges: Vec<(Pair, u32)> = Vec::with_capacity(resolved.len());
+    for &(pair, merged_id) in resolved.iter().rev() {
+        if seen_pairs.insert(pair) {
+            merges.push((pair, merged_id));
         }
     }
+    merges.reverse();
 
     core.id_to_atom = id_to_atom;
     core.atom_to_id = atom_to_id;
@@ -383,6 +395,28 @@ mod tests {
     fn test_invalid_json_rejected() {
         let mut core = TokenizerCore::new(PreTokenizerKind::Char, true);
         assert!(restore_from_hf_json(&mut core, "not json").is_err());
+    }
+
+    #[test]
+    fn test_repeated_merge_rule_keeps_last_occurrence() {
+        // HuggingFace `tokenizers` gives a repeated (left, right) merge rule
+        // the rank of its LAST occurrence in the file (verified against
+        // tokenizers==0.23.2: merges ["b c", "a b", "b c"] on vocab a,b,c,ab,bc
+        // encode "abc" as ['ab', 'c'], i.e. (a,b) outranks (b,c)). This is the
+        // opposite of SMILESPE (`vocabulary.rs`), which keeps the first
+        // occurrence.
+        pyo3::Python::initialize();
+        let json = r#"{
+            "model": {
+                "type": "BPE",
+                "vocab": {"<pad>": 0, "<unk>": 1, "<bos>": 2, "<eos>": 3,
+                          "C": 4, "O": 5, "CC": 6, "CO": 7},
+                "merges": ["C C", "C O", "C C"]
+            }
+        }"#;
+        let mut core = TokenizerCore::new(PreTokenizerKind::Char, true);
+        restore_from_hf_json(&mut core, json).unwrap();
+        assert_eq!(core.merges, vec![((4, 5), 7), ((4, 4), 6)]);
     }
 
     #[test]

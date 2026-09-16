@@ -1586,3 +1586,98 @@ class TestTokenizerFile:
         import rustmolbpe
         with pytest.raises(IOError):
             rustmolbpe.SmilesTokenizer.from_file(str(tmp_path / "missing.json"))
+
+    def test_save_to_directory_raises_ioerror(self, tmp_path):
+        import rustmolbpe
+        with pytest.raises(IOError):
+            rustmolbpe.SmilesTokenizer().save(str(tmp_path))
+
+    def test_huggingface_file_rejected_as_native(self, tmp_path):
+        """A HuggingFace tokenizer.json (top-level "version": "1.0", a string)
+        must fail the format check with a clear message, not a cryptic serde
+        type error from the full typed parse."""
+        import rustmolbpe
+        path = str(tmp_path / "tokenizer.json")
+        _trained_tokenizer(rustmolbpe.CharBPETokenizer).save_huggingface(path)
+
+        with pytest.raises(ValueError, match="Not a rustmolbpe tokenizer file"):
+            rustmolbpe.CharBPETokenizer.from_file(path)
+
+    def test_schema_incompatible_future_version_rejected(self, tmp_path):
+        """A future version whose schema is incompatible with today's `NativeFile`
+        must still fail with the version message, not a serde error, because
+        version is checked before the full typed parse."""
+        import rustmolbpe
+        path = tmp_path / "tokenizer.json"
+        _trained_tokenizer(rustmolbpe.CharBPETokenizer).save(str(path))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["version"] = 2
+        data["merges"] = [{"left": 4}]
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+        with pytest.raises(ValueError, match="Unsupported rustmolbpe tokenizer file version"):
+            rustmolbpe.CharBPETokenizer.from_file(str(path))
+
+    def test_hand_built_file_with_excess_merges_does_not_underflow(self, tmp_path):
+        """A crafted but internally-consistent file where merges outnumber
+        vocab entries must not panic / wrap `base_vocab_size` to u32::MAX."""
+        import rustmolbpe
+        path = tmp_path / "tokenizer.json"
+        data = {
+            "format": "rustmolbpe",
+            "version": 1,
+            "pretokenizer": "char",
+            "vocab": ["<pad>", "<unk>", "<bos>", "<eos>",
+                      "C", "CC", "CCC", "CCCC", "CCCCC"],
+            "merges": [
+                [4, 4, 5], [4, 5, 6], [5, 4, 6], [4, 6, 7], [5, 5, 7],
+                [6, 4, 7], [4, 7, 8], [5, 6, 8], [6, 5, 8], [7, 4, 8],
+            ],
+        }
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+        restored = rustmolbpe.CharBPETokenizer.from_file(str(path))
+
+        assert restored.num_merges == 10
+        assert restored.vocab_size == 9
+        assert restored.base_vocab_size == 0
+
+    def test_byte_level_file_missing_byte_tokens_rejected(self, tmp_path):
+        import rustmolbpe
+        path = tmp_path / "tokenizer.json"
+        _trained_tokenizer(rustmolbpe.ByteBPETokenizer).save(str(path))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["vocab"] = data["vocab"][:5]
+        data["merges"] = []
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+        with pytest.raises(ValueError, match="256 byte tokens"):
+            rustmolbpe.ByteBPETokenizer.from_file(str(path))
+
+    def test_untrained_byte_bpe_roundtrip(self, tmp_path):
+        """An untrained ByteBPETokenizer (just the 4 specials, no byte
+        alphabet seeded yet) round-trips through save/from_file."""
+        import rustmolbpe
+        tok = rustmolbpe.ByteBPETokenizer()
+        path = str(tmp_path / "tokenizer.json")
+        tok.save(path)
+
+        restored = rustmolbpe.ByteBPETokenizer.from_file(path)
+
+        assert restored.get_vocabulary() == tok.get_vocabulary()
+        assert restored.vocab_size == 4
+
+    def test_unknown_top_level_key_ignored(self, tmp_path):
+        """Readers ignore keys they do not recognize, so future optional
+        fields can be added without an incompatible version bump."""
+        import rustmolbpe
+        tok = _trained_tokenizer(rustmolbpe.CharBPETokenizer)
+        path = tmp_path / "tokenizer.json"
+        tok.save(str(path))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["comment"] = "extra"
+        path.write_text(json.dumps(data), encoding="utf-8")
+
+        restored = rustmolbpe.CharBPETokenizer.from_file(str(path))
+
+        assert restored.get_vocabulary() == tok.get_vocabulary()

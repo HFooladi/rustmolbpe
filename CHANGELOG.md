@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `save_huggingface` exported merges in the wrong priority, and `get_merges()`
   was out of order. Token IDs assigned by `load_vocabulary` are unchanged.
   Pickles now keep merge order too, and pickles from earlier versions still load.
+  A pickle written by 0.4.0 or earlier from a tokenizer loaded with
+  `load_vocabulary` still restores merges in token-ID order, because the
+  original order is not recoverable from it; reload the SMILESPE file instead.
 
 - `min_frequency` in `train_from_iterator` is now a threshold on pair counts,
   as documented: a pair is merged only if it occurs at least `min_frequency`
@@ -40,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Python 3.14 is now tested in CI and listed in the package classifiers
   (`cp314` wheels already shipped with 0.4.0).
 - `tokenizer_stats.py` now also sweeps `ByteBPETokenizer` (cached as a pickle,
-  since it has no vocabulary-file format) and reports a `num_merges` column.
+  since it has no SMILESPE vocabulary format) and reports a `num_merges` column.
   `vocab_size` includes the base alphabet, which is always 256 bytes for
   ByteBPE, so at equal `vocab_size` it learns fewer merges than CharBPE.
 

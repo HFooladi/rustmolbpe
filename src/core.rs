@@ -88,7 +88,7 @@ impl TokenizerCore {
     }
 
     pub(crate) fn base_vocab_size(&self) -> u32 {
-        (self.id_to_atom.len() - self.merges.len()) as u32
+        self.id_to_atom.len().saturating_sub(self.merges.len()) as u32
     }
 
     pub(crate) fn num_merges(&self) -> u32 {
@@ -755,6 +755,18 @@ mod tests {
         let ids = core.encode("Cl", false);
         assert_eq!(ids, vec![4, 5]);
         assert_eq!(core.decode(&ids).unwrap(), "Cl");
+    }
+
+    #[test]
+    fn test_base_vocab_size_saturates_when_merges_exceed_tokens() {
+        // A crafted (but otherwise structurally valid) core can have more
+        // merges than vocab entries; `base_vocab_size` must not underflow the
+        // usize subtraction (panics in debug, wraps to u32::MAX in release).
+        let mut core = atom_core();
+        for _ in 0..(core.id_to_atom.len() + 1) {
+            core.merges.push(((0, 0), 0));
+        }
+        assert_eq!(core.base_vocab_size(), 0);
     }
 
     #[test]

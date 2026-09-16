@@ -14,7 +14,7 @@ Tokenizers compared:
 
 The BPE tokenizers are trained once per vocab size and cached under ``data/``
 so subsequent runs are fast: CharBPE and SPE as SMILESPE vocabulary files,
-ByteBPE as a pickle (it has no vocabulary-file format). The character-level and
+ByteBPE as a pickle (it has no SMILESPE vocabulary format). The character-level and
 atom-level tokenizers need no training: with no merges, the token count of a
 molecule is simply its number of characters / atoms.
 

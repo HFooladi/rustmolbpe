@@ -114,7 +114,7 @@ pub(crate) fn load_vocabulary(
         merges.push(((left_id, right_id), new_id));
     }
 
-    let base_vocab_size = (id_to_atom.len() - merges.len()) as u32;
+    let base_vocab_size = id_to_atom.len().saturating_sub(merges.len()) as u32;
 
     log::info!(
         "Loaded vocabulary: {} base atoms, {} merges, {} total vocab",

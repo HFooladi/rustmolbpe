@@ -56,22 +56,52 @@ pub(crate) fn to_native_json(core: &TokenizerCore) -> PyResult<String> {
 /// granularity and whether merges are allowed. Everything is validated before
 /// `core` is modified; any problem raises `ValueError`.
 pub(crate) fn restore_from_native_json(core: &mut TokenizerCore, json: &str) -> PyResult<()> {
-    let file: NativeFile = serde_json::from_str(json)
+    // Parse to a generic `Value` first so `format` / `version` can be checked
+    // before the full typed parse. Otherwise a HuggingFace `tokenizer.json` (a
+    // different but structurally-JSON schema) or a future version-2 file with
+    // a changed schema would fail with a cryptic serde error instead of the
+    // dedicated messages below.
+    let value: serde_json::Value = serde_json::from_str(json)
         .map_err(|e| PyValueError::new_err(format!("Invalid rustmolbpe tokenizer file: {e}")))?;
 
-    if file.format != FORMAT_NAME {
-        return Err(PyValueError::new_err(format!(
-            "Not a rustmolbpe tokenizer file: format is '{}', expected '{FORMAT_NAME}'.",
-            file.format
-        )));
+    match value.get("format") {
+        Some(serde_json::Value::String(found)) if found == FORMAT_NAME => {}
+        Some(serde_json::Value::String(found)) => {
+            return Err(PyValueError::new_err(format!(
+                "Not a rustmolbpe tokenizer file: format is \"{found}\", expected \
+                 \"{FORMAT_NAME}\"."
+            )));
+        }
+        Some(found) => {
+            return Err(PyValueError::new_err(format!(
+                "Not a rustmolbpe tokenizer file: format is {found}, expected \"{FORMAT_NAME}\"."
+            )));
+        }
+        None => {
+            return Err(PyValueError::new_err(format!(
+                "Not a rustmolbpe tokenizer file: format is missing, expected \"{FORMAT_NAME}\"."
+            )));
+        }
     }
-    if file.version != FORMAT_VERSION {
-        return Err(PyValueError::new_err(format!(
-            "Unsupported rustmolbpe tokenizer file version {}; this build reads version \
-             {FORMAT_VERSION}.",
-            file.version
-        )));
+
+    match value.get("version") {
+        Some(found) if found.as_u64() == Some(FORMAT_VERSION as u64) => {}
+        Some(found) => {
+            return Err(PyValueError::new_err(format!(
+                "Unsupported rustmolbpe tokenizer file version {found}; this build reads \
+                 version {FORMAT_VERSION}."
+            )));
+        }
+        None => {
+            return Err(PyValueError::new_err(format!(
+                "Unsupported rustmolbpe tokenizer file version missing; this build reads \
+                 version {FORMAT_VERSION}."
+            )));
+        }
     }
+
+    let file: NativeFile = serde_json::from_value(value)
+        .map_err(|e| PyValueError::new_err(format!("Invalid rustmolbpe tokenizer file: {e}")))?;
 
     let kind = PreTokenizerKind::from_tag(&file.pretokenizer).ok_or_else(|| {
         PyValueError::new_err(format!(
@@ -104,6 +134,26 @@ pub(crate) fn restore_from_native_json(core: &mut TokenizerCore, json: &str) -> 
         return Err(PyValueError::new_err(
             "Tokenizer file vocab must start with the special tokens <pad>, <unk>, <bos>, <eos>.",
         ));
+    }
+
+    // Byte-level tokenizers guarantee no `<unk>` is ever emitted because their
+    // base vocab is always all 256 byte values, in byte order, at IDs 4-259
+    // (see `TokenizerCore::train_from_iterator`). A file claiming to be
+    // byte-level must carry that same fixed alphabet (or be untrained, i.e.
+    // just the 4 specials) or that guarantee would silently break on load.
+    if kind == PreTokenizerKind::Byte {
+        let has_byte_alphabet = file.vocab.len() == specials.len()
+            || (file.vocab.len() >= specials.len() + 256
+                && (0u16..256).all(|b| {
+                    file.vocab[specials.len() + b as usize]
+                        == crate::bytelevel::byte_to_token(b as u8).as_str()
+                }));
+        if !has_byte_alphabet {
+            return Err(PyValueError::new_err(
+                "Byte-level tokenizer file must contain the 256 byte tokens at IDs 4-259 in \
+                 byte order.",
+            ));
+        }
     }
 
     let vocab_size = file.vocab.len() as u32;
@@ -275,5 +325,42 @@ mod tests {
         assert!(err
             .to_string()
             .contains("Invalid rustmolbpe tokenizer file"));
+    }
+
+    #[test]
+    fn test_missing_format_key_rejected_before_typed_parse() {
+        // A structurally-valid JSON document missing "format" entirely (e.g. a
+        // HuggingFace tokenizer.json, whose top-level "version" is "1.0", a
+        // string, not our integer) must fail the format/version pre-check with
+        // a clear message, not a cryptic serde type error.
+        pyo3::Python::initialize();
+        let mut core = empty_char_bpe();
+        let err = restore_from_native_json(
+            &mut core,
+            r#"{"version": "1.0", "truncation": null, "model": {"type": "BPE"}}"#,
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string().contains("Not a rustmolbpe tokenizer file"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_byte_level_file_without_256_byte_tokens_rejected() {
+        // A file claiming to be byte-level but whose vocab is just the 4
+        // specials plus an ordinary readable token ("C") is not a valid
+        // byte-level tokenizer file: it lacks the fixed 256-byte alphabet that
+        // guarantees ByteBPETokenizer never emits `<unk>`.
+        pyo3::Python::initialize();
+        let mut byte_core = TokenizerCore::new(PreTokenizerKind::Byte, true);
+        let id = byte_core.id_to_atom.len() as u32;
+        byte_core.id_to_atom.push(CompactString::from("C"));
+        byte_core.atom_to_id.insert(CompactString::from("C"), id);
+        let json = to_native_json(&byte_core).unwrap();
+
+        let mut target = TokenizerCore::new(PreTokenizerKind::Byte, true);
+        let err = restore_from_native_json(&mut target, &json).unwrap_err();
+        assert!(err.to_string().contains("256 byte tokens"), "got: {err}");
     }
 }

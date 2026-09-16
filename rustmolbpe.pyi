@@ -84,7 +84,7 @@ class _BaseTokenizer:
 
         Raises:
             IOError: If file cannot be read
-            NotImplementedError: For non-BPE tokenizers (CharTokenizer, AtomTokenizer)
+            NotImplementedError: For CharTokenizer, AtomTokenizer and ByteBPETokenizer
         """
         ...
 
@@ -100,7 +100,7 @@ class _BaseTokenizer:
 
         Raises:
             IOError: If file cannot be written
-            NotImplementedError: For non-BPE tokenizers (CharTokenizer, AtomTokenizer)
+            NotImplementedError: For CharTokenizer, AtomTokenizer and ByteBPETokenizer
         """
         ...
 

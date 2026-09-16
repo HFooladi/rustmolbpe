@@ -3,8 +3,9 @@
 //! Pickle state is versioned:
 //! - `version = 1` - legacy `SmilesTokenizer` pickles (pre-0.3.0). They have no
 //!   `pretokenizer` key; they are always atom-level, so it defaults to `"atom"`.
-//! - `version = 2` - current format. Carries a `pretokenizer` tag (`"atom"` or
-//!   `"char"`) so a pickle can only be restored into a matching tokenizer class.
+//! - `version = 2` - current format. Carries a `pretokenizer` tag (`"atom"`,
+//!   `"char"` or `"byte"`) so a pickle can only be restored into a matching
+//!   tokenizer class.
 //!   States written after rustmolbpe 0.4.0 also carry `merges_ordered = True`:
 //!   `merges` is in priority order. States without it are ordered by merged token ID.
 

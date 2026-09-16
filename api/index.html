@@ -1455,7 +1455,7 @@ raises <code>ValueError</code>.</p>
 <li><code>iterator</code> (Iterator[str]): Iterator yielding SMILES strings</li>
 <li><code>vocab_size</code> (int): Target vocabulary size (including special tokens and base atoms)</li>
 <li><code>buffer_size</code> (int, optional): Number of SMILES to buffer for parallel processing. Default: 8192</li>
-<li><code>min_frequency</code> (int, optional): Minimum frequency for a pair to be merged. Default: 2</li>
+<li><code>min_frequency</code> (int, optional): Minimum number of occurrences (summed over the whole corpus) a pair needs to be merged; training stops early once no remaining pair reaches it. Default: 2</li>
 </ul>
 <p><strong>Example:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">smiles_generator</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
@@ -1865,7 +1865,7 @@ exactly but individual token sequences may occasionally differ.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="p">()</span>
 <a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">is_trained</span><span class="p">())</span>  <span class="c1"># False</span>
 <a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span><span class="nb">iter</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"CCC"</span><span class="p">]),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">min_frequency</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span><span class="nb">iter</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"CCC"</span><span class="p">]),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
 <a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">is_trained</span><span class="p">())</span>  <span class="c1"># True</span>
 </code></pre></div>
 <h4 id="has_vocabulary">has_vocabulary<a class="headerlink" href="#has_vocabulary" title="Permanent link">&para;</a></h4>
@@ -1892,13 +1892,11 @@ exactly but individual token sequences may occasionally differ.</p>
 </ul>
 <p><strong>Example:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">rustmolbpe</span><span class="o">.</span><span class="n">SmilesTokenizer</span><span class="p">()</span>
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span>
-<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>    <span class="nb">iter</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"CCN"</span><span class="p">,</span> <span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"c1ccccc1"</span><span class="p">]),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">min_frequency</span><span class="o">=</span><span class="mi">1</span>
-<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="p">)</span>
-<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>
-<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="n">merges</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">get_merges</span><span class="p">()</span>
-<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">merges</span><span class="p">[:</span><span class="mi">3</span><span class="p">])</span>  <span class="c1"># First 3 merge rules</span>
-<a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a><span class="c1"># [('c', 'c', 'cc'), ('C', 'C', 'CC'), ('c', '1', 'c1')]</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="n">tokenizer</span><span class="o">.</span><span class="n">train_from_iterator</span><span class="p">(</span><span class="nb">iter</span><span class="p">([</span><span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"CCN"</span><span class="p">,</span> <span class="s2">"CCO"</span><span class="p">,</span> <span class="s2">"c1ccccc1"</span><span class="p">]),</span> <span class="n">vocab_size</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="n">merges</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">get_merges</span><span class="p">()</span>
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">merges</span><span class="p">[:</span><span class="mi">3</span><span class="p">])</span>  <span class="c1"># First 3 merge rules</span>
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="c1"># [('c', 'c', 'cc'), ('C', 'C', 'CC'), ('c', '1', 'c1')]</span>
 </code></pre></div>
 <hr />
 <h3 id="serialization">Serialization<a class="headerlink" href="#serialization" title="Permanent link">&para;</a></h3>

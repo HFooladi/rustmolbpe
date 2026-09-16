@@ -24,8 +24,12 @@ use crate::{encoding, padding, training, vocabulary};
 
 /// Shared tokenizer implementation backing every tokenizer class.
 pub(crate) struct TokenizerCore {
-    /// Maps pairs of token IDs to their merged token ID.
-    pub merges: StdHashMap<Pair, u32>,
+    /// Learned merges in priority order: `((left_id, right_id), merged_id)`.
+    ///
+    /// A list rather than a map: nothing looks merges up by pair (encoding is
+    /// greedy longest-match over `atom_to_id`), and list order is the merge
+    /// priority that `get_merges`, `save_vocabulary` and HuggingFace export emit.
+    pub merges: Vec<(Pair, u32)>,
     /// Maps token strings to token IDs.
     pub atom_to_id: AHashMap<CompactString, u32>,
     /// Reverse mapping: token ID to token string.
@@ -40,7 +44,7 @@ impl TokenizerCore {
     /// Create a new core with special tokens initialized.
     pub(crate) fn new(kind: PreTokenizerKind, allow_merges: bool) -> Self {
         let mut core = Self {
-            merges: StdHashMap::new(),
+            merges: Vec::new(),
             atom_to_id: AHashMap::new(),
             id_to_atom: Vec::new(),
             pretokenizer: PreTokenizer::new(kind),
@@ -602,7 +606,7 @@ mod tests {
         core.atom_to_id.insert(CompactString::from("C"), 4);
         core.atom_to_id.insert(CompactString::from("O"), 5);
         core.atom_to_id.insert(CompactString::from("CC"), 6);
-        core.merges.insert((4, 4), 6);
+        core.merges.push(((4, 4), 6));
 
         let ids = core.encode("CCO", false);
         assert_eq!(ids, vec![6, 5]);
@@ -613,7 +617,7 @@ mod tests {
     fn test_is_trained() {
         let mut core = atom_core();
         assert!(!core.is_trained());
-        core.merges.insert((4, 5), 6);
+        core.merges.push(((4, 5), 6));
         assert!(core.is_trained());
     }
 
@@ -633,8 +637,8 @@ mod tests {
             core.atom_to_id
                 .insert(CompactString::from(*tok), 4 + i as u32);
         }
-        core.merges.insert((4, 4), 6);
-        core.merges.insert((4, 5), 7);
+        core.merges.push(((4, 4), 6));
+        core.merges.push(((4, 5), 7));
 
         let merges = core.get_merges();
         assert_eq!(merges.len(), 2);
@@ -715,7 +719,7 @@ mod tests {
         core.atom_to_id.insert(CompactString::from("C"), 4);
         core.atom_to_id.insert(CompactString::from("O"), 5);
         core.atom_to_id.insert(CompactString::from("CC"), 6);
-        core.merges.insert((4, 4), 6);
+        core.merges.push(((4, 4), 6));
 
         assert_eq!(core.vocab_size(), 7);
         assert_eq!(core.base_vocab_size(), 6);

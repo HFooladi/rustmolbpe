@@ -1,7 +1,5 @@
 //! BPE training algorithm implementation.
 
-use std::collections::HashMap as StdHashMap;
-
 use ahash::{AHashMap, AHashSet};
 use compact_str::CompactString;
 use dary_heap::OctonaryHeap;
@@ -12,7 +10,7 @@ use crate::word::{count_pairs_parallel, MergeJob, Word};
 /// Core incremental BPE training given unique words and their counts.
 ///
 /// # Arguments
-/// * `merges` - Mutable reference to the merges HashMap to populate
+/// * `merges` - Mutable reference to the ordered merge list to populate
 /// * `atom_to_id` - Mutable reference to the atom-to-ID mapping
 /// * `id_to_atom` - Mutable reference to the ID-to-atom vector
 /// * `words` - Vector of Word structs representing unique token sequences
@@ -21,7 +19,7 @@ use crate::word::{count_pairs_parallel, MergeJob, Word};
 /// * `min_frequency` - Minimum count a pair must have to be merged; training
 ///   stops early once the most frequent remaining pair falls below it
 pub(crate) fn train_core_incremental(
-    merges: &mut StdHashMap<Pair, u32>,
+    merges: &mut Vec<(Pair, u32)>,
     atom_to_id: &mut AHashMap<CompactString, u32>,
     id_to_atom: &mut Vec<CompactString>,
     mut words: Vec<Word>,
@@ -89,7 +87,7 @@ pub(crate) fn train_core_incremental(
 
         // Record merge
         let new_id = base_vocab_size + merges_done;
-        merges.insert(top.pair, new_id);
+        merges.push((top.pair, new_id));
 
         // Build merged token string
         let left_str = &id_to_atom[top.pair.0 as usize];
@@ -167,7 +165,7 @@ mod tests {
             .enumerate()
             .map(|(i, a)| (a.clone(), i as u32))
             .collect();
-        let mut merges = StdHashMap::new();
+        let mut merges = Vec::new();
         let base = id_to_atom.len();
 
         train_core_incremental(

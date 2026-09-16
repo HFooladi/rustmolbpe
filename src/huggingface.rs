@@ -19,14 +19,14 @@
 
 use std::collections::HashMap as StdHashMap;
 
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use compact_str::CompactString;
 use pyo3::exceptions::PyValueError;
 use pyo3::PyResult;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::constants::{BOS_TOKEN, EOS_TOKEN, PAD_TOKEN, SMILES_ATOM_PATTERN, UNK_TOKEN};
+use crate::constants::{Pair, BOS_TOKEN, EOS_TOKEN, PAD_TOKEN, SMILES_ATOM_PATTERN, UNK_TOKEN};
 use crate::core::TokenizerCore;
 use crate::pretokenizer::PreTokenizerKind;
 
@@ -263,15 +263,19 @@ pub(crate) fn restore_from_hf_json(core: &mut TokenizerCore, json: &str) -> PyRe
         .map(|(id, tok)| (tok.clone(), id as u32))
         .collect();
 
-    // Rebuild merges: (left_id, right_id) -> id of the concatenated token.
-    let mut merges = StdHashMap::with_capacity(model.merges.len());
+    // Rebuild merges in the file's priority order: (left_id, right_id) -> id of
+    // the concatenated token. A repeated rule keeps its first occurrence.
+    let mut merges: Vec<(Pair, u32)> = Vec::with_capacity(model.merges.len());
+    let mut seen_pairs: AHashSet<Pair> = AHashSet::new();
     for merge in &model.merges {
         let (left, right) = merge.parts()?;
         let left_id = lookup(&atom_to_id, left)?;
         let right_id = lookup(&atom_to_id, right)?;
         let merged = format!("{left}{right}");
         let merged_id = lookup(&atom_to_id, &merged)?;
-        merges.insert((left_id, right_id), merged_id);
+        if seen_pairs.insert((left_id, right_id)) {
+            merges.push(((left_id, right_id), merged_id));
+        }
     }
 
     core.id_to_atom = id_to_atom;
@@ -304,7 +308,7 @@ mod tests {
             core.id_to_atom.push(CompactString::from(tok));
             core.atom_to_id.insert(CompactString::from(tok), id);
         }
-        core.merges.insert((4, 4), 6); // C + C -> CC
+        core.merges.push(((4, 4), 6)); // C + C -> CC
         core
     }
 

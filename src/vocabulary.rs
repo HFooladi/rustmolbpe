@@ -1,6 +1,5 @@
 //! Vocabulary loading, saving, and query methods.
 
-use std::collections::HashMap as StdHashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 
@@ -35,7 +34,7 @@ pub(crate) fn init_special_tokens(
 /// Special tokens (PAD, UNK, BOS, EOS) are always added at IDs 0-3.
 pub(crate) fn load_vocabulary(
     path: &str,
-    merges: &mut StdHashMap<Pair, u32>,
+    merges: &mut Vec<(Pair, u32)>,
     atom_to_id: &mut AHashMap<CompactString, u32>,
     id_to_atom: &mut Vec<CompactString>,
 ) -> Result<(), String> {
@@ -82,8 +81,11 @@ pub(crate) fn load_vocabulary(
         id_to_atom.push(atom);
     }
 
-    // Build merges, adding merged tokens to vocabulary as we go
-    // We need to process merges in order and assign IDs incrementally
+    // Build merges in file (priority) order, adding merged tokens to the
+    // vocabulary as we go. Token IDs are assigned exactly as before; only the
+    // merge list keeps the file's order. A repeated rule keeps its first
+    // occurrence, matching SmilesPE.
+    let mut seen_pairs: AHashSet<Pair> = AHashSet::new();
     for (left, right) in merge_pairs.iter() {
         let left_id = *atom_to_id
             .get(left)
@@ -91,6 +93,9 @@ pub(crate) fn load_vocabulary(
         let right_id = *atom_to_id
             .get(right)
             .ok_or_else(|| format!("Unknown token: {}", right))?;
+        if !seen_pairs.insert((left_id, right_id)) {
+            continue;
+        }
 
         let merged_str = CompactString::from(format!("{}{}", left, right));
 
@@ -106,7 +111,7 @@ pub(crate) fn load_vocabulary(
             id
         };
 
-        merges.insert((left_id, right_id), new_id);
+        merges.push(((left_id, right_id), new_id));
     }
 
     let base_vocab_size = (id_to_atom.len() - merges.len()) as u32;
@@ -114,7 +119,7 @@ pub(crate) fn load_vocabulary(
     log::info!(
         "Loaded vocabulary: {} base atoms, {} merges, {} total vocab",
         base_vocab_size,
-        merge_pairs.len(),
+        merges.len(),
         id_to_atom.len()
     );
 
@@ -123,19 +128,15 @@ pub(crate) fn load_vocabulary(
 
 /// Save vocabulary to a SMILESPE-format file.
 ///
-/// Format: one merge per line, `token1 token2` (space-separated)
+/// Format: one merge per line, `token1 token2` (space-separated), in priority order.
 pub(crate) fn save_vocabulary(
     path: &str,
-    merges: &StdHashMap<Pair, u32>,
+    merges: &[(Pair, u32)],
     id_to_atom: &[CompactString],
 ) -> Result<(), String> {
     let mut file = File::create(path).map_err(|e| format!("Cannot create file: {}", e))?;
 
-    // Sort merges by their resulting token ID (order learned)
-    let mut sorted_merges: Vec<_> = merges.iter().collect();
-    sorted_merges.sort_by_key(|&(_, &new_id)| new_id);
-
-    for (&(left_id, right_id), _) in sorted_merges {
+    for &((left_id, right_id), _) in merges {
         let left_str = &id_to_atom[left_id as usize];
         let right_str = &id_to_atom[right_id as usize];
         writeln!(file, "{} {}", left_str, right_str).map_err(|e| format!("Write error: {}", e))?;
@@ -156,19 +157,16 @@ pub(crate) fn get_vocabulary(id_to_atom: &[CompactString]) -> Vec<(String, u32)>
         .collect()
 }
 
-/// Return the learned merge rules as (left, right, merged) string tuples.
+/// Return the merge rules as (left, right, merged) string tuples.
 ///
-/// Merges are returned in order of learning priority (by merged token ID).
+/// Merges are returned in priority order (the order they were learned or loaded).
 pub(crate) fn get_merges(
-    merges: &StdHashMap<Pair, u32>,
+    merges: &[(Pair, u32)],
     id_to_atom: &[CompactString],
 ) -> Vec<(String, String, String)> {
-    let mut sorted_merges: Vec<_> = merges.iter().collect();
-    sorted_merges.sort_by_key(|&(_, &new_id)| new_id);
-
-    sorted_merges
-        .into_iter()
-        .map(|(&(left_id, right_id), &merged_id)| {
+    merges
+        .iter()
+        .map(|&((left_id, right_id), merged_id)| {
             let left_str = id_to_atom[left_id as usize].to_string();
             let right_str = id_to_atom[right_id as usize].to_string();
             let merged_str = id_to_atom[merged_id as usize].to_string();
@@ -242,9 +240,9 @@ mod tests {
         id_to_atom.push(CompactString::from("CC"));
         id_to_atom.push(CompactString::from("CO"));
 
-        let mut merges = StdHashMap::new();
-        merges.insert((1, 1), 3); // C + C -> CC
-        merges.insert((1, 2), 4); // C + O -> CO
+        let mut merges = Vec::new();
+        merges.push(((1, 1), 3)); // C + C -> CC
+        merges.push(((1, 2), 4)); // C + O -> CO
 
         let result = get_merges(&merges, &id_to_atom);
 
@@ -279,5 +277,42 @@ mod tests {
         assert_eq!(token_to_id("C", &atom_to_id).unwrap(), 0);
         assert_eq!(token_to_id("O", &atom_to_id).unwrap(), 1);
         assert!(token_to_id("N", &atom_to_id).is_err());
+    }
+
+    #[test]
+    fn test_load_vocabulary_keeps_file_order_and_ids() {
+        // "c c" produces "cc", which a later rule uses, so the loader gives "cc"
+        // a low (alphabetical) ID while "CC" gets a new, higher ID. The merge
+        // list must still follow the file; the repeated "C C" line is ignored.
+        let path =
+            std::env::temp_dir().join(format!("rustmolbpe_vocab_order_{}.txt", std::process::id()));
+        std::fs::write(&path, "C C\nc c\ncc O\nC C\n").unwrap();
+
+        let mut merges = Vec::new();
+        let mut atom_to_id = AHashMap::new();
+        let mut id_to_atom = Vec::new();
+        load_vocabulary(
+            path.to_str().unwrap(),
+            &mut merges,
+            &mut atom_to_id,
+            &mut id_to_atom,
+        )
+        .unwrap();
+
+        // Specials 0-3; rule tokens sorted: C=4, O=5, c=6, cc=7; new merged
+        // tokens in file order: CC=8, ccO=9.
+        assert_eq!(atom_to_id.get(&CompactString::from("cc")), Some(&7));
+        assert_eq!(atom_to_id.get(&CompactString::from("CC")), Some(&8));
+        assert_eq!(merges, vec![((4, 4), 8), ((6, 6), 7), ((7, 5), 9)]);
+
+        let out = std::env::temp_dir().join(format!(
+            "rustmolbpe_vocab_order_out_{}.txt",
+            std::process::id()
+        ));
+        save_vocabulary(out.to_str().unwrap(), &merges, &id_to_atom).unwrap();
+        assert_eq!(std::fs::read_to_string(&out).unwrap(), "C C\nc c\ncc O\n");
+
+        std::fs::remove_file(&path).unwrap();
+        std::fs::remove_file(&out).unwrap();
     }
 }

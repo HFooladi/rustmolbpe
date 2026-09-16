@@ -6,8 +6,6 @@
 //! - `version = 2` - current format. Carries a `pretokenizer` tag (`"atom"` or
 //!   `"char"`) so a pickle can only be restored into a matching tokenizer class.
 
-use std::collections::HashMap as StdHashMap;
-
 use ahash::AHashMap;
 use compact_str::CompactString;
 use pyo3::prelude::*;
@@ -34,11 +32,7 @@ pub(crate) fn create_pickle_state<'py>(
     state.set_item("id_to_atom", PyList::new(py, id_to_atom_list)?)?;
 
     // Serialize merges as a list of ((left_id, right_id), merged_id) tuples.
-    let merges_list: Vec<((u32, u32), u32)> = core
-        .merges
-        .iter()
-        .map(|(&(l, r), &m)| ((l, r), m))
-        .collect();
+    let merges_list: Vec<((u32, u32), u32)> = core.merges.clone();
     state.set_item("merges", merges_list)?;
 
     // Pre-tokenizer granularity tag - guards against cross-class unpickling.
@@ -107,16 +101,13 @@ pub(crate) fn restore_into_core(
         id_to_atom.push(compact_atom);
     }
 
-    // Restore merges.
-    let merges_list: Vec<((u32, u32), u32)> = state
+    // Restore merges. Pickled merge lists are in hash-map order, so sort by
+    // merged token ID (the learning order of a trained tokenizer).
+    let mut merges: Vec<((u32, u32), u32)> = state
         .get_item("merges")?
         .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Missing 'merges' in pickle state"))?
         .extract()?;
-
-    let mut merges = StdHashMap::with_capacity(merges_list.len());
-    for ((left_id, right_id), merged_id) in merges_list {
-        merges.insert((left_id, right_id), merged_id);
-    }
+    merges.sort_by_key(|&(_, merged_id)| merged_id);
 
     core.id_to_atom = id_to_atom;
     core.atom_to_id = atom_to_id;
@@ -135,7 +126,7 @@ mod tests {
             let mut core = TokenizerCore::new(PreTokenizerKind::Atom, true);
             core.id_to_atom.push(CompactString::from("C"));
             core.atom_to_id.insert(CompactString::from("C"), 4);
-            core.merges.insert((4, 4), 5);
+            core.merges.push(((4, 4), 5));
             core.id_to_atom.push(CompactString::from("CC"));
             core.atom_to_id.insert(CompactString::from("CC"), 5);
 
@@ -146,7 +137,7 @@ mod tests {
             restore_into_core(&mut restored, &state).unwrap();
 
             assert_eq!(restored.id_to_atom.len(), 6);
-            assert_eq!(restored.merges.get(&(4, 4)), Some(&5));
+            assert_eq!(restored.merges, vec![((4, 4), 5)]);
             assert_eq!(restored.pretokenizer.kind(), PreTokenizerKind::Atom);
         });
     }

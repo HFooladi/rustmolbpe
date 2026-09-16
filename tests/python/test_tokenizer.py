@@ -4,6 +4,13 @@ import pytest
 import tempfile
 import os
 
+import json
+
+# Shipped ChEMBL 36 SMILESPE vocabulary (tracked in git).
+_CHEMBL36_VOCAB = os.path.join(
+    os.path.dirname(__file__), "..", "..", "data", "chembl36_vocab.txt"
+)
+
 
 # Top-level function for multiprocessing test (local functions can't be pickled)
 def _encode_smiles_worker(tok_smiles):
@@ -194,6 +201,67 @@ class TestVocabularyIO:
                 assert len(parts) == 2, f"Invalid line: {line}"
         finally:
             os.unlink(vocab_path)
+
+
+class TestVocabularyMergeOrder:
+    """load_vocabulary keeps SMILESPE merge priority order; token IDs are unchanged."""
+
+    def test_load_then_save_is_byte_identical(self, tmp_path):
+        import rustmolbpe
+        tok = rustmolbpe.SmilesTokenizer()
+        tok.load_vocabulary(_CHEMBL36_VOCAB)
+        out = tmp_path / "resaved.txt"
+        tok.save_vocabulary(str(out))
+        with open(_CHEMBL36_VOCAB, "rb") as f:
+            assert out.read_bytes() == f.read()
+
+    def test_get_merges_follows_file_order(self):
+        import rustmolbpe
+        tok = rustmolbpe.SmilesTokenizer()
+        tok.load_vocabulary(_CHEMBL36_VOCAB)
+        # First three lines of data/chembl36_vocab.txt: "c c", "C C", "O )".
+        assert tok.get_merges()[:3] == [
+            ("c", "c", "cc"),
+            ("C", "C", "CC"),
+            ("O", ")", "O)"),
+        ]
+
+    def test_loaded_token_ids_unchanged(self):
+        """Guard: IDs assigned by load_vocabulary must not change (models depend on them)."""
+        import rustmolbpe
+        tok = rustmolbpe.SmilesTokenizer()
+        tok.load_vocabulary(_CHEMBL36_VOCAB)
+        assert tok.encode("CC(=O)Nc1ccc(O)cc1") == [2338, 539]
+        assert tok.encode("CCO") == [353]
+        assert tok.encode("c1ccccc1") == [782]
+
+    @pytest.mark.parametrize("cls_name", ["CharBPETokenizer", "SmilesTokenizer"])
+    def test_trained_merge_order_survives_save_and_load(self, cls_name, tmp_path):
+        import rustmolbpe
+        cls = getattr(rustmolbpe, cls_name)
+        tok = cls()
+        tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=300, min_frequency=1)
+        path = str(tmp_path / "vocab.txt")
+        tok.save_vocabulary(path)
+        loaded = cls()
+        loaded.load_vocabulary(path)
+        assert loaded.get_merges() == tok.get_merges()
+
+    def test_huggingface_export_of_loaded_vocab_matches_trained(self, tmp_path):
+        import rustmolbpe
+        tok = rustmolbpe.CharBPETokenizer()
+        tok.train_from_iterator(iter(_LADDER_SMILES), vocab_size=300, min_frequency=1)
+        tok.save_vocabulary(str(tmp_path / "vocab.txt"))
+        loaded = rustmolbpe.CharBPETokenizer()
+        loaded.load_vocabulary(str(tmp_path / "vocab.txt"))
+
+        tok.save_huggingface(str(tmp_path / "trained.json"))
+        loaded.save_huggingface(str(tmp_path / "loaded.json"))
+        with open(tmp_path / "trained.json") as f:
+            trained_merges = json.load(f)["model"]["merges"]
+        with open(tmp_path / "loaded.json") as f:
+            loaded_merges = json.load(f)["model"]["merges"]
+        assert loaded_merges == trained_merges
 
 
 class TestEdgeCases:
